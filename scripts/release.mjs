@@ -67,7 +67,7 @@ const bumped = cargo.replace(/^version = "[^"]+"/m, `version = "${next}"`);
 if (bumped === cargo) fail("could not find the version line in src-tauri/Cargo.toml");
 writeFileSync(cargoPath, bumped);
 // Refresh Cargo.lock's entry for the app without touching dependencies.
-sh("cargo metadata --format-version 1 --offline", { cwd: resolve(root, "src-tauri"), stdio: ["ignore", "ignore", "inherit"] });
+sh("cargo metadata --format-version 1", { cwd: resolve(root, "src-tauri"), stdio: ["ignore", "ignore", "inherit"] });
 
 sh("git add package.json package-lock.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock");
 sh(`git commit -q -m "Release v${next}"`);
