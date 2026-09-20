@@ -14,6 +14,8 @@ The installers are not code-signed yet, so SmartScreen will warn on first run. C
 
 After install, look for the coral scissors in the tray. Left-click it for the menu.
 
+**Updating.** QACut checks for a newer release shortly after it starts and offers to install it; **Check for updates...** in the tray menu does the same on demand. The installer runs in place, nothing to uninstall first, and your bundles, settings and prompts stay where they are.
+
 ## Three tools, one tray
 
 The menu has three sections.

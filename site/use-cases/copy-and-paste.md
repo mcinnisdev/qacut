@@ -39,7 +39,7 @@ A `notes.md` in the folder lists every shot in the batch, and any note you did t
 - Each new quick shot joins the open batch, and the note box header counts them, so a morning's screenshots end up in one folder rather than scattered across the desktop.
 - Every default hotkey can be changed under **Keyboard shortcuts…** in the tray. If another app already owns `Ctrl+Shift+1`, QACut reports it and the rest still apply.
 - **Copy image** writes any marks you drew into the file first, so the saved `01.png` matches what you pasted.
-- `Enter` in the note box saves the shot with a note; `Ctrl+Enter` hands the path and note off to an agent. Neither is needed for a plain paste.
+- `Enter` in the note box saves the shot with a note and copies it two ways: a chat pastes the picture with the note under it, a terminal pastes the path and note for an agent. Not needed for a plain paste.
 
 ## Related
 

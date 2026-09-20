@@ -195,7 +195,9 @@ fn poll_loop(stop: Arc<AtomicBool>) -> Events {
     let shapes = cursors::table();
     let mut last_pos: Option<(i32, i32)> = None;
     let mut last_shape = String::new();
-    let mut last_title = String::new();
+    // None until the first sample, so the window the recording started on
+        // is always logged, even one with no title.
+        let mut last_title: Option<String> = None;
     let mut buttons = [false; 3];
     let mut tick: u32 = 0;
     let mut since_sample = 0u32;
@@ -253,9 +255,9 @@ fn poll_loop(stop: Arc<AtomicBool>) -> Events {
                 let mut buf = [0u16; 256];
                 let n = unsafe { GetWindowTextW(hwnd, buf.as_mut_ptr(), buf.len() as i32) };
                 let title = String::from_utf16_lossy(&buf[..n.max(0) as usize]);
-                if title != last_title {
+                if last_title.as_deref() != Some(title.as_str()) {
                     ev.windows.push((t, title.clone()));
-                    last_title = title;
+                    last_title = Some(title);
                 }
             }
         }

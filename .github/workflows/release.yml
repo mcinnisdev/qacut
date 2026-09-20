@@ -51,10 +51,14 @@ jobs:
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          # Signs the installers so Check for updates can trust them.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: QACut ${{ github.ref_name }}
           releaseDraft: true
+          includeUpdaterJson: true
 
       # GitHub's own note generator lists pull requests, and this repo ships
       # by direct commits, so the notes are the commit subjects since the

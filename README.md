@@ -26,13 +26,13 @@
 
 QACut lives in the system tray. Press a hotkey, drag a region, do the thing. No account, no upload, no telemetry: everything is plain files under `~/QACut/` until you choose to send them somewhere.
 
-Free and open source under the [MIT License](LICENSE). Windows 10 (2004+) or 11, x64. The installers are not code-signed yet, so SmartScreen warns on first run: **More info**, then **Run anyway**.
+Free and open source under the [MIT License](LICENSE). Windows 10 (2004+) or 11, x64. The installers are not code-signed yet, so SmartScreen warns on first run: **More info**, then **Run anyway**. After that, **Check for updates...** in the tray menu installs newer releases in place, and QACut also checks quietly when it starts.
 
 ## Three modes, one tray
 
 | | Mode | For | How |
 | --- | --- | --- | --- |
-| **1** | **QACut Basic** · quick shots | One fix, or three, for an agent; or a marked-up screenshot for a person. | `Ctrl+Shift+1`, drag, mark up, note. `Ctrl+Enter` copies the path and note for an agent; **Copy image** puts the marked-up PNG on the clipboard for a chat or email. Keep going to build a batch and paste them together. |
+| **1** | **QACut Basic** · quick shots | One fix, or three, for an agent; or a marked-up screenshot for a person. | `Ctrl+Shift+1`, drag, mark up, note. `Enter` saves and copies it for wherever you paste: a terminal gets the path and note, a chat or email gets the picture with the note under it. **Copy image** is the picture alone. Keep going to build a batch and paste them together. |
 | **2** | **QACut Bundles** · bigger jobs | A fix list across a whole app, or the raw material for a process doc or tutorial. | `Ctrl+Shift+2` for a screenshot, `Ctrl+Shift+3` to auto-capture a process. Group by page, note each shot, finish, hand the folder to an agent with a prompt written for the job. |
 | **R** | **QACut Studio** · recordings for people | A walkthrough someone will actually watch. | `Ctrl+Shift+R` records the screen with the cursor as data. Get it back smoothed and enlarged, with click ripples, follow zooms, key badges, a camera bubble and narration. Trim, cut, export to MP4. |
 
@@ -45,7 +45,7 @@ C:\Users\nick\QACut\Quick\2026-09-19_101512\01.png
 The save button is clipped at 125% scaling.
 ```
 
-The shot opens large with the markup tools (arrow, highlight, blur, step counters) and the note beside it. **Copy image** (`Ctrl+Shift+C`) puts the marked-up screenshot on the clipboard as an image, for pasting into Teams, Slack, an email or a ticket: the fastest answer to "which button do you mean?"
+The shot opens large with the markup tools (arrow, highlight, blur, step counters) and the note beside it. Press `Enter` and the shot is on the clipboard two ways at once: an agent's terminal pastes the path and note; Teams, Slack, an email or a ticket pastes the picture with the note printed under it. **Copy image** (`Ctrl+Shift+C`) is the picture alone: the fastest answer to "which button do you mean?"
 
 Take a few in a row and `Ctrl+Enter` on the last one copies the whole batch, each shot tied to its note. The batch then closes, so the next quick shot starts a fresh folder and an agent is never pointed at shots you've already dealt with. The **Prompt library…** in the tray holds every clipboard text, quick-shot lines and bundle prompts alike, and the prompts you add yourself, picked by name before a hand-off; words in braces are filled in.
 

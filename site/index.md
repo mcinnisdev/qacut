@@ -182,7 +182,7 @@ Toggle animates but the state never saves.
 <div class="panel">
 <span class="lbl">Note</span>
 <div class="note">The save button is clipped at 125% scaling.</div>
-<span class="b">Save + copy path</span>
+<span class="b">Save + copy</span>
 <span class="b primary">Copy image</span>
 </div>
 </div>

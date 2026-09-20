@@ -321,6 +321,68 @@ window.addEventListener("mouseup", () => {
 /// Writes the composite and the marks for the image on screen. In review
 /// mode this runs whenever you move to another shot, so only a changed
 /// image is rewritten.
+async function toBase64(blob: Blob): Promise<string> {
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  }
+  return btoa(bin);
+}
+
+/// Breaks `text` into lines that fit `max` pixels in the context's font.
+function wrapLines(ctx: CanvasRenderingContext2D, text: string, max: number): string[] {
+  const lines: string[] = [];
+  for (const para of text.split(/\r?\n/)) {
+    let line = "";
+    for (const word of para.split(/\s+/).filter(Boolean)) {
+      const next = line ? `${line} ${word}` : word;
+      if (line && ctx.measureText(next).width > max) {
+        lines.push(line);
+        line = word;
+      } else {
+        line = next;
+      }
+    }
+    lines.push(line);
+  }
+  return lines;
+}
+
+/// The marked-up shot with the note printed in a band under it (the canvas
+/// is extended, nothing is covered), as PNG base64. No note, no band.
+async function captionedPng(note: string): Promise<string> {
+  const text = note.trim();
+  const w = canvas.width;
+  const h = canvas.height;
+  const font = Math.max(14, Math.min(28, Math.round(w / 40)));
+  const pad = Math.round(font * 0.9);
+  const lh = Math.round(font * 1.4);
+  const out = document.createElement("canvas");
+  const ctx = out.getContext("2d");
+  if (!ctx) throw new Error("no canvas");
+  const family = `${font}px "Segoe UI", system-ui, sans-serif`;
+  ctx.font = family;
+  const lines = text ? wrapLines(ctx, text, w - pad * 2) : [];
+  const band = lines.length ? pad * 2 + lines.length * lh : 0;
+  out.width = w;
+  out.height = h + band;
+  ctx.drawImage(canvas, 0, 0);
+  if (band) {
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, h, w, band);
+    ctx.fillStyle = "#d0d7de";
+    ctx.fillRect(0, h, w, 1);
+    ctx.fillStyle = "#1f2328";
+    ctx.font = family;
+    ctx.textBaseline = "top";
+    lines.forEach((l, i) => ctx.fillText(l, pad, h + pad + i * lh));
+  }
+  const blob = await new Promise<Blob | null>((res) => out.toBlob(res, "image/png"));
+  if (!blob) throw new Error("empty image");
+  return toBase64(blob);
+}
+
 async function writeMarks(): Promise<boolean> {
   if (review && !marksDirty) return true;
   selected = null;
@@ -336,15 +398,11 @@ async function writeMarks(): Promise<boolean> {
     report("export", "empty image");
     return false;
   }
-  const bytes = new Uint8Array(await blob.arrayBuffer());
-  let bin = "";
-  for (let i = 0; i < bytes.length; i += 0x8000) {
-    bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  }
+  const pngBase64 = await toBase64(blob);
   try {
     await invoke("save_markup", {
       path,
-      pngBase64: btoa(bin),
+      pngBase64,
       marks: JSON.stringify(marks),
     });
   } catch (err) {
@@ -429,15 +487,17 @@ function keyLabel(spec: string) {
 }
 
 let quickKey = "Ctrl+Shift+1";
+let quickBatch = 1;
 
 function showQuickBatch(n: number) {
+  quickBatch = n;
   quickCount.textContent = n > 1 ? `Quick shot ${String(n).padStart(2, "0")} in this batch` : "Quick shot";
   quickNewBtn.hidden = n < 2;
   quickFinishBtn.textContent = n > 1 ? `Finish and hand off (${n})` : "Finish and hand off";
   quickHint.textContent =
     n > 1
-      ? `Enter saves this note and keeps the batch open. Ctrl+Enter copies all ${n} shots with their notes and closes the batch. Copy image puts this marked-up screenshot on the clipboard for a person.`
-      : `Enter saves the note; take more with ${quickKey}. Ctrl+Enter copies the path and note for an agent. Copy image puts the marked-up screenshot on the clipboard for a person.`;
+      ? `Enter saves this note and copies the shot: paste it into a terminal for the path and note, or into a chat for the picture with the note under it. Ctrl+Enter copies all ${n} shots with their notes and closes the batch. Copy image is the picture alone.`
+      : `Enter saves the note and copies the shot both ways: paste into a terminal for the path and note, or into a chat or email for the picture with the note under it. Take more with ${quickKey}. Copy image is the picture alone.`;
 }
 
 function status(text: string) {
@@ -457,7 +517,9 @@ async function quickSave(all: boolean) {
       done = false;
       return;
     }
-    await invoke("save_quick", { note: quickNote.value, all, prompt: quickPrompt.value || null });
+    // A batch hand-off is text only; a single shot also travels as the picture.
+    const pngBase64 = !all || quickBatch <= 1 ? await captionedPng(quickNote.value) : null;
+    await invoke("save_quick", { note: quickNote.value, all, prompt: quickPrompt.value || null, pngBase64 });
   } catch (err) {
     done = false;
     report("quick save", err);
@@ -788,7 +850,7 @@ async function boot() {
     (document.getElementById("save") as HTMLButtonElement).hidden = true;
     (document.getElementById("cancel") as HTMLButtonElement).hidden = true;
     footKeys.innerHTML =
-      "<kbd>Enter</kbd> save + copy path <kbd>Ctrl</kbd>+<kbd>Enter</kbd> finish and hand off <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd> copy image <kbd>Esc</kbd> keep, no note";
+      "<kbd>Enter</kbd> save + copy <kbd>Ctrl</kbd>+<kbd>Enter</kbd> finish and hand off <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd> copy image <kbd>Esc</kbd> keep, no note";
     try {
       const hk = await invoke<{ quick: string }>("get_hotkeys");
       if (hk.quick) quickKey = keyLabel(hk.quick);

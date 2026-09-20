@@ -8,6 +8,14 @@ aside: false
 
 What each release lets you do that the one before did not. Newest first; every heading links to the release, with the installer and the full list of commits.
 
+## 2.3.0 (2026-09-19)
+
+[Release notes and installer](https://github.com/mcinnisdev/qacut/releases/tag/v2.3.0)
+
+- A quick shot's `Enter` now copies for wherever you paste: a terminal gets the path and note for an agent, a chat or an email gets the picture with the note printed under it. **Copy image** stays the picture alone.
+- **Check for updates...** in the tray menu, and a quiet check at start-up, install a newer release in place. No more uninstall and reinstall.
+- Every screenshot on qacut.com is now the real app, taken by QACut itself.
+
 ## 2.2.0 (2026-09-19)
 
 [Release notes and installer](https://github.com/mcinnisdev/qacut/releases/tag/v2.2.0)

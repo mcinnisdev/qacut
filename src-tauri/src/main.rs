@@ -780,6 +780,7 @@ fn build_tray_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
 
     let shortcuts_i = MenuItem::with_id(app, "shortcuts", "Keyboard shortcuts...", true, None::<&str>)?;
     let prompts_i = MenuItem::with_id(app, "prompts", "Prompt library...", true, None::<&str>)?;
+    let update_i = MenuItem::with_id(app, "update", "Check for updates...", true, None::<&str>)?;
     let quit_i = MenuItem::with_id(app, "quit", "Quit QACut", true, None::<&str>)?;
     let sep_quick = PredefinedMenuItem::separator(app)?;
     let sep1 = PredefinedMenuItem::separator(app)?;
@@ -796,7 +797,7 @@ fn build_tray_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
             &sep_inputs,
             &head_inputs, &keys_i, &mic_i, &cam_i, &studio_folder_i,
             &sep2,
-            &shortcuts_i, &prompts_i, &quit_i,
+            &shortcuts_i, &prompts_i, &update_i, &quit_i,
         ],
     )
 }
@@ -823,6 +824,67 @@ fn trigger_prompts(app: &AppHandle) {
 #[tauri::command]
 async fn open_prompt_library(app: AppHandle) -> Result<(), String> {
     overlay::open_prompts(&app, None).map_err(|e| e.to_string())
+}
+
+/// Asks GitHub for a newer release and offers to install it. `quiet` is
+/// the start-up check: nothing is shown unless there is an update.
+fn check_for_updates(app: &AppHandle, quiet: bool) {
+    use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
+    use tauri_plugin_updater::UpdaterExt;
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let current = app.package_info().version.to_string();
+        let checked = match app.updater() {
+            Ok(u) => u.check().await.map_err(|e| e.to_string()),
+            Err(e) => Err(e.to_string()),
+        };
+        match checked {
+            Ok(Some(update)) => {
+                let mut notes = update.body.clone().unwrap_or_default().trim().to_string();
+                if notes.len() > 700 {
+                    notes.truncate(700);
+                    notes.push_str("...");
+                }
+                let install = app
+                    .dialog()
+                    .message(format!(
+                        "QACut {} is available; you have {current}.\n\n{notes}\n\nInstall it now? QACut closes, the installer runs, and it starts again.",
+                        update.version
+                    ))
+                    .title("Update available")
+                    .kind(MessageDialogKind::Info)
+                    .buttons(MessageDialogButtons::OkCancelCustom("Install".into(), "Later".into()))
+                    .blocking_show();
+                if install {
+                    match update.download_and_install(|_, _| {}, || {}).await {
+                        Ok(()) => app.restart(),
+                        Err(e) => {
+                            app.dialog()
+                                .message(format!("The update could not be installed: {e}"))
+                                .title("Update failed")
+                                .kind(MessageDialogKind::Error)
+                                .blocking_show();
+                        }
+                    }
+                }
+            }
+            Ok(None) if !quiet => {
+                app.dialog()
+                    .message(format!("QACut {current} is the latest version."))
+                    .title("No update")
+                    .kind(MessageDialogKind::Info)
+                    .blocking_show();
+            }
+            Err(e) if !quiet => {
+                app.dialog()
+                    .message(format!("Could not check for updates: {e}"))
+                    .title("Check for updates")
+                    .kind(MessageDialogKind::Error)
+                    .blocking_show();
+            }
+            _ => {}
+        }
+    });
 }
 
 fn trigger_shortcuts(app: &AppHandle) {
@@ -2069,6 +2131,7 @@ async fn save_quick(
     note: String,
     all: bool,
     prompt: Option<String>,
+    png_base64: Option<String>,
 ) -> Result<String, String> {
     let path = state.lock().unwrap().quick_pending.take();
     let Some(path) = path else {
@@ -2108,7 +2171,16 @@ async fn save_quick(
         Some(p) => format!("{}\n\n{}", p.template.trim(), text),
         None => text,
     };
-    app.clipboard().write_text(text.clone()).map_err(|e| e.to_string())?;
+    // The same hand-off pastes as text in a terminal and as the picture
+    // (note printed under it) in a chat or an email.
+    let png = match png_base64 {
+        Some(b) => {
+            use base64::Engine as _;
+            Some(base64::engine::general_purpose::STANDARD.decode(b).map_err(|e| e.to_string())?)
+        }
+        None => None,
+    };
+    set_clipboard(&text, png.as_deref())?;
     overlay::close_note(&app);
     Ok(text)
 }
@@ -2169,6 +2241,31 @@ fn quick_new_batch(app: AppHandle, state: State<Shared>) -> Result<QuickBatch, S
 
 /// Puts a PNG on the clipboard as an image, so a marked-up quick shot can
 /// be pasted straight into a chat or an email.
+/// Text and, when given, an image on the clipboard at once, so a terminal
+/// pastes the text and a chat pastes the picture. CF_DIB is what Office and
+/// Paint read; the registered PNG format is what browsers, Teams and Slack
+/// prefer, and it keeps the exact pixels.
+fn set_clipboard(text: &str, png: Option<&[u8]>) -> Result<(), String> {
+    use clipboard_win::{formats, Clipboard, Setter};
+    let _open = Clipboard::new_attempts(10).map_err(|e| e.to_string())?;
+    clipboard_win::empty().map_err(|e| e.to_string())?;
+    formats::Unicode.write_clipboard(&text).map_err(|e| e.to_string())?;
+    if let Some(png) = png {
+        // The crate's image setters clear the clipboard first, which would
+        // drop the text; the raw non-clearing writes keep every format.
+        // A CF_DIB is a BMP file without its 14-byte file header.
+        let rgb = image::load_from_memory(png).map_err(|e| e.to_string())?.to_rgb8();
+        let mut bmp = std::io::Cursor::new(Vec::new());
+        rgb.write_to(&mut bmp, image::ImageFormat::Bmp).map_err(|e| e.to_string())?;
+        let bmp = bmp.into_inner();
+        clipboard_win::raw::set_without_clear(formats::CF_DIB, &bmp[14..]).map_err(|e| e.to_string())?;
+        if let Some(id) = clipboard_win::register_format("PNG") {
+            clipboard_win::raw::set_without_clear(id.get(), png).map_err(|e| e.to_string())?;
+        }
+    }
+    Ok(())
+}
+
 #[tauri::command]
 fn copy_image(app: AppHandle, path: String) -> Result<(), String> {
     let bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
@@ -2231,6 +2328,8 @@ fn main() {
     tauri::Builder::default()
         .manage(Shared::default())
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
@@ -2337,6 +2436,14 @@ fn main() {
                 drive::start(handle.clone(), std::path::PathBuf::from(dir));
             }
             let menu = build_tray_menu(&handle)?;
+            // A quiet look for a newer release once the app has settled.
+            if !cfg!(debug_assertions) {
+                let h = handle.clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(std::time::Duration::from_secs(20));
+                    check_for_updates(&h, true);
+                });
+            }
 
             // A trimmed copy of the mark rather than the app icon, whose
             // margins cost a third of the glyph at menubar size.
@@ -2370,6 +2477,7 @@ fn main() {
                     }
                     "shortcuts" => off_main(app, trigger_shortcuts),
                     "prompts" => off_main(app, trigger_prompts),
+                    "update" => check_for_updates(app, false),
                     "group" => off_main(app, trigger_group),
                     "peek" => off_main(app, trigger_peek),
                     "finish" => off_main(app, trigger_finish),
@@ -2478,3 +2586,4 @@ mod tests {
         assert_eq!(quick_entry(std::path::Path::new("C:/q/01.png"), "", &Prompts::default()), "C:/q/01.png");
     }
 }
+

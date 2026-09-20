@@ -8,7 +8,7 @@ QACut Basic is the quick lane. A quick shot is one screenshot and one note, save
 
 ## Taking one
 
-`Ctrl+Shift+1` freezes the screen. Drag a region and the shot opens large, with the markup tools along the top and the note beside it. Type a note and press `Enter` to save it. `Ctrl+Enter` instead finishes and hands off: the screenshot's path and your note go on the clipboard, ready to paste with whatever else you want to say.
+`Ctrl+Shift+1` freezes the screen. Drag a region and the shot opens large, with the markup tools along the top and the note beside it. Type a note and press `Enter`. The shot is saved and copied two ways at once: as text, the screenshot's path and your note, which is what a terminal pastes; and as the picture with the note printed under it, which is what a chat or an email pastes. `Ctrl+Enter` finishes the batch instead: every shot's path and note, ready to paste with whatever else you want to say.
 
 <figure class="qc-shot">
 <img src="/media/docs/quick-window.png" alt="The quick shot window: markup tools along the top, the note and the hand-off picker beside the shot." loading="lazy" />
@@ -24,7 +24,7 @@ The file lands in a batch folder under `~/QACut/Quick/`, named for when the batc
 
 ## Sending it to a person
 
-Draw an arrow, highlight the button, blur the account number, then press **Copy image** (or `Ctrl+Shift+C`). The marked-up screenshot is on the clipboard as an image, ready to paste into Teams, Slack, an email or a ticket. No note needed, and the shot is still saved in the batch if you want it later.
+Draw an arrow, highlight the button, blur the account number, type what you mean and press `Enter`. Pasted into Teams, Slack, an email or a ticket, the shot arrives with your note printed under it, so the picture and the explanation travel together. **Copy image** (or `Ctrl+Shift+C`) is the picture alone, no note, for when the screenshot speaks for itself. Either way the shot is saved in the batch if you want it later.
 
 ## Sending a few together
 
