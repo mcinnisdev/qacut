@@ -349,6 +349,19 @@ function wrapLines(ctx: CanvasRenderingContext2D, text: string, max: number): st
   return lines;
 }
 
+/// Whether the last few rows of the drawn shot are mostly dark.
+function isDarkAlongBottom(ctx: CanvasRenderingContext2D, w: number, h: number): boolean {
+  const rows = Math.min(12, h);
+  const px = ctx.getImageData(0, h - rows, w, rows).data;
+  let sum = 0;
+  let n = 0;
+  for (let i = 0; i < px.length; i += 16) {
+    sum += px[i] * 0.299 + px[i + 1] * 0.587 + px[i + 2] * 0.114;
+    n++;
+  }
+  return n > 0 && sum / n < 110;
+}
+
 /// The marked-up shot with the note printed in a band under it (the canvas
 /// is extended, nothing is covered), as PNG base64. No note, no band.
 async function captionedPng(note: string): Promise<string> {
@@ -356,24 +369,27 @@ async function captionedPng(note: string): Promise<string> {
   const w = canvas.width;
   const h = canvas.height;
   const font = Math.max(14, Math.min(28, Math.round(w / 40)));
-  const pad = Math.round(font * 0.9);
-  const lh = Math.round(font * 1.4);
+  const pad = Math.round(font * 1.1);
+  const lh = Math.round(font * 1.45);
   const out = document.createElement("canvas");
   const ctx = out.getContext("2d");
   if (!ctx) throw new Error("no canvas");
   const family = `${font}px "Segoe UI", system-ui, sans-serif`;
   ctx.font = family;
   const lines = text ? wrapLines(ctx, text, w - pad * 2) : [];
-  const band = lines.length ? pad * 2 + lines.length * lh : 0;
+  const band = lines.length ? pad * 2 + lines.length * lh - Math.round(lh - font) : 0;
   out.width = w;
   out.height = h + band;
   ctx.drawImage(canvas, 0, 0);
   if (band) {
-    ctx.fillStyle = "#ffffff";
+    // The band takes the shot's tone, read off its bottom edge, so it reads
+    // as part of the picture rather than a label stuck under it.
+    const dark = isDarkAlongBottom(ctx, w, h);
+    ctx.fillStyle = dark ? "#1b1f24" : "#ffffff";
     ctx.fillRect(0, h, w, band);
-    ctx.fillStyle = "#d0d7de";
+    ctx.fillStyle = dark ? "#343b44" : "#d0d7de";
     ctx.fillRect(0, h, w, 1);
-    ctx.fillStyle = "#1f2328";
+    ctx.fillStyle = dark ? "#e6e9ec" : "#1f2328";
     ctx.font = family;
     ctx.textBaseline = "top";
     lines.forEach((l, i) => ctx.fillText(l, pad, h + pad + i * lh));
