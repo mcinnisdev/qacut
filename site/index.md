@@ -143,7 +143,7 @@ Toggle animates but the state never saves.
 <div class="qc-flow-step">
 <div class="caps"><kbd>Ctrl</kbd><i>+</i><kbd>Shift</kbd><i>+</i><kbd>1</kbd></div>
 <h3>Quick shot</h3>
-<p>One shot, one note, Ctrl+Enter, paste.</p>
+<p>One shot, one note, Enter for a person or Ctrl+Shift+A for an agent, paste.</p>
 </div>
 <div class="qc-flow-step">
 <div class="caps"><kbd>Ctrl</kbd><i>+</i><kbd>Shift</kbd><i>+</i><kbd>2</kbd></div>
@@ -161,13 +161,13 @@ Toggle animates but the state never saves.
 <div class="qc-spot-copy">
 <span class="eyebrow">QACut Basic</span>
 <h2>Mark it up. Copy it. Paste it.</h2>
-<p class="lead">The quick shot opens in the editor with arrow, highlight, blur and step tools, and a note beside it. Copy image puts the marked-up PNG on the clipboard for a chat, an email or a ticket; Ctrl+Enter copies the path and note for an agent.</p>
+<p class="lead">The quick shot opens in the editor with arrow, highlight, blur and step tools, and a note beside it. Enter copies the picture with the note printed under it for a chat, an email or a ticket; Ctrl+Shift+A copies the path and note for an agent.</p>
 <div class="qc-spot-links">
 <a class="qc-more" href="/docs/quick">Quick shots in the docs<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
 </div>
 </div>
 <div class="qc-spot-visual">
-<div class="qc-mock" role="img" aria-label="The quick shot window: a toolbar with Arrow selected, a screenshot with a coral arrow pointing at a button and a blurred line, and a note panel with Save and copy path and Copy image buttons">
+<div class="qc-mock" role="img" aria-label="The quick shot window: a toolbar with Arrow selected, a screenshot with a coral arrow pointing at a button and a blurred line, and a note panel with Copy for a person and Copy image buttons">
 <div class="qc-win qc-quick" aria-hidden="true">
 <div class="tb" aria-hidden="true"><span>Move</span><span class="on">Arrow</span><span>Highlight</span><span>Blur</span><span>Step</span></div>
 <div class="body">
@@ -182,7 +182,7 @@ Toggle animates but the state never saves.
 <div class="panel">
 <span class="lbl">Note</span>
 <div class="note">The save button is clipped at 125% scaling.</div>
-<span class="b">Save + copy</span>
+<span class="b">Copy for a person</span>
 <span class="b primary">Copy image</span>
 </div>
 </div>

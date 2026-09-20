@@ -29,22 +29,22 @@
         <!-- Review mode: the shot's place in the bundle, its note, and a way
              to the next one, so a whole auto-captured run can be cleaned up
              without going back to the bundle window. -->
-        <!-- Quick shot: note it and hand it to an agent, or mark it up and
-             copy the image for a person. Enter saves and keeps the batch
-             open; Ctrl+Enter finishes and hands off. -->
+        <!-- Quick shot: Enter copies the picture with the note under it for
+             a person and keeps the batch open; Ctrl+Shift+A hands the path
+             and note (the whole batch, if more than one) to an agent. -->
         <aside class="edit-side" id="quick-side" hidden>
           <div class="edit-side-head">
             <span class="edit-count" id="quick-count">Quick shot</span>
             <span class="edit-hint" id="quick-hint"></span>
           </div>
           <select class="field" id="quick-prompt" aria-label="Prompt to wrap the hand-off in" hidden></select>
-          <textarea class="field" id="quick-note" placeholder="What should the agent do with this?" aria-label="Note"></textarea>
+          <textarea class="field" id="quick-note" placeholder="What should they know, or do?" aria-label="Note"></textarea>
           <div class="edit-side-actions">
-            <button class="btn primary" id="quick-save" title="Save the note and copy the shot: the path and note as text, and the picture with the note under it (Enter)">Save + copy</button>
-            <button class="btn" id="quick-copy-image" title="Copy the marked-up image to the clipboard (Ctrl+Shift+C)">Copy image</button>
+            <button class="btn primary" id="quick-save" title="Copy the picture with your note printed under it, for a chat, an email or a ticket (Enter)">Copy for a person</button>
+            <button class="btn" id="quick-copy-image" title="Copy the marked-up picture alone, no note (Ctrl+Shift+C)">Copy image</button>
           </div>
           <div class="edit-side-actions">
-            <button class="btn" id="quick-finish" title="Copy every shot in the batch with its note and close the batch (Ctrl+Enter)">Finish and hand off</button>
+            <button class="btn" id="quick-finish" title="Copy the path and note for an agent; with more than one shot in the batch, all of them, and the batch closes (Ctrl+Shift+A)">Hand off to agent</button>
           </div>
           <div class="edit-side-nav">
             <button class="linkish" id="quick-new-batch" hidden title="Move this shot into a fresh batch">New batch</button>

@@ -1,6 +1,6 @@
 ---
 title: Send screenshots and notes to an AI agent
-description: "Spot a UI bug while an AI agent is working, screenshot it, type a note and press Ctrl+Enter. The agent gets a path it can open and an instruction to act on."
+description: "Spot a UI bug while an AI agent is working, screenshot it, type a note and press Ctrl+Shift+A. The agent gets a path it can open and an instruction to act on."
 ---
 
 # Send screenshots and notes to an AI agent
@@ -13,14 +13,14 @@ Describing a layout bug in words is slow, and the agent still guesses. A screens
 
 1. Press `Ctrl+Shift+1` and drag the button that is wrong.
 2. Type what is wrong in the note box beside the shot.
-3. Press `Ctrl+Enter`. The path and the note are on the clipboard.
+3. Press `Ctrl+Shift+A`. The path and the note are on the clipboard.
 4. Paste into your agent and carry on.
 
-Three small things on the same page? Press `Enter` on each note instead of `Ctrl+Enter` and keep going. The note box header counts the batch. On the last one, `Ctrl+Enter` copies all of them with their notes, so the agent gets one message with three screenshots and three instructions.
+Three small things on the same page? Press `Enter` on each note and keep going; the window header counts the batch. On the last one, `Ctrl+Shift+A` copies all of them with their notes, so the agent gets one message with three screenshots and three instructions.
 
 <figure class="qc-shot">
-<img src="/media/use-cases/agent-feedback-loops-1.png" alt="Step 2: the note typed. Ctrl+Enter puts the path and this note on the clipboard." loading="lazy" />
-<figcaption>Step 2: the note typed. Ctrl+Enter puts the path and this note on the clipboard.</figcaption>
+<img src="/media/use-cases/agent-feedback-loops-1.png" alt="Step 2: the note typed. Ctrl+Shift+A puts the path and this note on the clipboard." loading="lazy" />
+<figcaption>Step 2: the note typed. Ctrl+Shift+A puts the path and this note on the clipboard.</figcaption>
 </figure>
 <figure class="qc-shot">
 <img src="/media/use-cases/agent-feedback-loops-3.png" alt="Three shots in one batch; the header counts them." loading="lazy" />

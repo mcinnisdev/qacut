@@ -32,22 +32,22 @@ Free and open source under the [MIT License](LICENSE). Windows 10 (2004+) or 11,
 
 | | Mode | For | How |
 | --- | --- | --- | --- |
-| **1** | **QACut Basic** · quick shots | One fix, or three, for an agent; or a marked-up screenshot for a person. | `Ctrl+Shift+1`, drag, mark up, note. `Enter` saves and copies it for wherever you paste: a terminal gets the path and note, a chat or email gets the picture with the note under it. **Copy image** is the picture alone. Keep going to build a batch and paste them together. |
+| **1** | **QACut Basic** · quick shots | One fix, or three, for an agent; or a marked-up screenshot for a person. | `Ctrl+Shift+1`, drag, mark up, note. `Enter` copies the picture with the note under it for a person; `Ctrl+Shift+A` copies the path and note for an agent, the whole batch if there are several. **Copy image** is the picture alone. Keep going to build a batch and paste them together. |
 | **2** | **QACut Bundles** · bigger jobs | A fix list across a whole app, or the raw material for a process doc or tutorial. | `Ctrl+Shift+2` for a screenshot, `Ctrl+Shift+3` to auto-capture a process. Group by page, note each shot, finish, hand the folder to an agent with a prompt written for the job. |
 | **R** | **QACut Studio** · recordings for people | A walkthrough someone will actually watch. | `Ctrl+Shift+R` records the screen with the cursor as data. Get it back smoothed and enlarged, with click ripples, follow zooms, key badges, a camera bubble and narration. Trim, cut, export to MP4. |
 
 ## QACut Basic: quick shots
 
-`Ctrl+Shift+1` freezes the screen. Drag a region, type a note, `Enter` saves it. `Ctrl+Enter` finishes and hands off: the screenshot's path and your note land on the clipboard.
+`Ctrl+Shift+1` freezes the screen. Drag a region, type a note, then say who it is for: `Enter` for a person, `Ctrl+Shift+A` for an agent. The A is the tell.
 
 ```
 C:\Users\nick\QACut\Quick\2026-09-19_101512\01.png
 The save button is clipped at 125% scaling.
 ```
 
-The shot opens large with the markup tools (arrow, highlight, blur, step counters) and the note beside it. Press `Enter` and the shot is on the clipboard two ways at once: an agent's terminal pastes the path and note; Teams, Slack, an email or a ticket pastes the picture with the note printed under it. **Copy image** (`Ctrl+Shift+C`) is the picture alone: the fastest answer to "which button do you mean?"
+The shot opens large with the markup tools (arrow, highlight, blur, step counters) and the note beside it. `Enter` puts the picture on the clipboard with your note printed in a band under it, ready for Teams, Slack, an email or a ticket. `Ctrl+Shift+A` puts the screenshot's path and the note on the clipboard as text, ready for an agent's terminal. **Copy image** (`Ctrl+Shift+C`) is the picture alone: the fastest answer to "which button do you mean?"
 
-Take a few in a row and `Ctrl+Enter` on the last one copies the whole batch, each shot tied to its note. The batch then closes, so the next quick shot starts a fresh folder and an agent is never pointed at shots you've already dealt with. The **Prompt library…** in the tray holds every clipboard text, quick-shot lines and bundle prompts alike, and the prompts you add yourself, picked by name before a hand-off; words in braces are filled in.
+Take a few in a row and `Ctrl+Shift+A` on the last one copies the whole batch for the agent, each shot tied to its note. The batch then closes, so the next quick shot starts a fresh folder and an agent is never pointed at shots you've already dealt with. The **Prompt library…** in the tray holds every clipboard text, quick-shot lines and bundle prompts alike, and the prompts you add yourself, picked by name before a hand-off; words in braces are filled in.
 
 ## QACut Bundles
 
@@ -98,7 +98,7 @@ All of these can be changed in **Keyboard shortcuts…** (tray, or Help in the b
 | `Ctrl+Shift+R` | Studio recording start / stop |
 | `Ctrl+Space` | Zoom in here / out, only while a Studio recording runs |
 
-In a note box: `Enter` saves, `Shift+Enter` adds a line, `Esc` keeps the shot with no note, `Ctrl+E` opens the markup editor on it. Quick shots: `Ctrl+Enter` finishes the batch, `Ctrl+Shift+C` copies the marked-up image. In the review window: `←` `→` previous and next shot, `M A H B S` tools, `Ctrl+Z` undo, `Ctrl+S` save, `Esc` close.
+In a note box: `Enter` saves, `Shift+Enter` adds a line, `Esc` keeps the shot with no note, `Ctrl+E` opens the markup editor on it. Quick shots: `Enter` copies the picture with the note for a person, `Ctrl+Shift+A` hands the path and note (or the batch) to an agent, `Ctrl+Shift+C` copies the picture alone. In the review window: `←` `→` previous and next shot, `M A H B S` tools, `Ctrl+Z` undo, `Ctrl+S` save, `Esc` close.
 
 ## Development
 

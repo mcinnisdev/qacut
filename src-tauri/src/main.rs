@@ -2156,9 +2156,9 @@ async fn save_quick(
     ));
     std::fs::write(&index, body).map_err(|e| e.to_string())?;
 
-    let text = if all {
-        // Handing the batch off closes it: the next quick shot starts a
-        // fresh folder.
+    let text = if all && png_base64.is_none() {
+        // Handing the batch off to an agent closes it: the next quick shot
+        // starts a fresh folder.
         state.lock().unwrap().quick_batch = None;
         quick_batch_text(&dir, &Prompts::load(&app))
     } else {
@@ -2171,18 +2171,24 @@ async fn save_quick(
         Some(p) => format!("{}\n\n{}", p.template.trim(), text),
         None => text,
     };
-    // The same hand-off pastes as text in a terminal and as the picture
-    // (note printed under it) in a chat or an email.
-    let png = match png_base64 {
+    // With a picture this is a hand-off to a person: the image with the
+    // note printed under it, and nothing else, because a chat pastes text
+    // in preference to an image when both are there. Without one it is the
+    // agent hand-off: the path and note as text.
+    match png_base64 {
         Some(b) => {
             use base64::Engine as _;
-            Some(base64::engine::general_purpose::STANDARD.decode(b).map_err(|e| e.to_string())?)
+            let png = base64::engine::general_purpose::STANDARD.decode(b).map_err(|e| e.to_string())?;
+            set_clipboard("", Some(&png))?;
+            overlay::close_note(&app);
+            Ok(String::new())
         }
-        None => None,
-    };
-    set_clipboard(&text, png.as_deref())?;
-    overlay::close_note(&app);
-    Ok(text)
+        None => {
+            set_clipboard(&text, None)?;
+            overlay::close_note(&app);
+            Ok(text)
+        }
+    }
 }
 
 /// Throws away the quick shot the note box was attached to.
@@ -2249,7 +2255,9 @@ fn set_clipboard(text: &str, png: Option<&[u8]>) -> Result<(), String> {
     use clipboard_win::{formats, Clipboard, Setter};
     let _open = Clipboard::new_attempts(10).map_err(|e| e.to_string())?;
     clipboard_win::empty().map_err(|e| e.to_string())?;
-    formats::Unicode.write_clipboard(&text).map_err(|e| e.to_string())?;
+    if !text.is_empty() {
+        formats::Unicode.write_clipboard(&text).map_err(|e| e.to_string())?;
+    }
     if let Some(png) = png {
         // The crate's image setters clear the clipboard first, which would
         // drop the text; the raw non-clearing writes keep every format.

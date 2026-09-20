@@ -85,7 +85,7 @@ const KIND_PLACEHOLDERS: Record<"quick" | "bundle", [string, string][]> = {
 };
 
 const KIND_ABOUT: Record<"quick" | "bundle", string> = {
-  quick: "Picked from \"Hand off as\" in the quick shot window. Wraps the shots you hand off.",
+  quick: "Picked from \"Agent hand-off\" in the quick shot window. Wraps the shots you hand off.",
   bundle: "Picked from the purpose menu in the bundle window. The whole instruction for the bundle.",
 };
 

@@ -80,4 +80,10 @@ jobs:
               echo "**Full changelog**: https://github.com/$GITHUB_REPOSITORY/compare/$prev...$GITHUB_REF_NAME"
             fi
           } > body.md
+          # The updater's manifest carries the same notes, so the in-app
+          # update dialog can show what changed.
+          gh release download "$GITHUB_REF_NAME" --pattern latest.json --output latest.json --clobber
+          jq --rawfile n body.md '.notes = $n' latest.json > latest.notes.json
+          mv latest.notes.json latest.json
+          gh release upload "$GITHUB_REF_NAME" latest.json --clobber
           gh release edit "$GITHUB_REF_NAME" --title "QACut $GITHUB_REF_NAME" --notes-file body.md --draft=false --latest

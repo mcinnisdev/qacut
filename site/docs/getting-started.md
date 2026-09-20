@@ -42,7 +42,7 @@ Both put their files under `~/QACut/`. Everything is plain files you can open, m
 
 Point an agent at the folder, or use **Copy agent prompt** in the bundle window for a ready-made instruction. The bundle is finished; your next capture starts a new one.
 
-For a one-off, skip the bundle: `Ctrl+Shift+1` takes a quick shot, and `Ctrl+Enter` on its note copies the screenshot's path and the note, ready to paste. Plain `Enter` saves and lets you take more before you send them together.
+For a one-off, skip the bundle: `Ctrl+Shift+1` takes a quick shot. `Enter` on its note copies the picture with the note under it for a person; `Ctrl+Shift+A` copies the screenshot's path and the note for an agent, and with several shots in the batch, all of them at once.
 
 ## Your first Studio recording
 

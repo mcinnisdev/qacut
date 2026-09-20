@@ -8,11 +8,18 @@ aside: false
 
 What each release lets you do that the one before did not. Newest first; every heading links to the release, with the installer and the full list of commits.
 
+## 2.3.1 (2026-09-19)
+
+[Release notes and installer](https://github.com/mcinnisdev/qacut/releases/tag/v2.3.1)
+
+- Quick shots say who they are for. `Enter` copies the picture with your note printed under it, for a person. `Ctrl+Shift+A` copies the path and note (or the whole batch) for an agent. The A is the tell. Chats paste text in preference to an image when both are on the clipboard, so the two-in-one hand-off of 2.3.0 came out as text in Teams.
+- First release you can install from **Check for updates...**.
+
 ## 2.3.0 (2026-09-19)
 
 [Release notes and installer](https://github.com/mcinnisdev/qacut/releases/tag/v2.3.0)
 
-- A quick shot's `Enter` now copies for wherever you paste: a terminal gets the path and note for an agent, a chat or an email gets the picture with the note printed under it. **Copy image** stays the picture alone.
+- A quick shot's note can travel with the picture, printed in a band under it. (Superseded by 2.3.1's keys.)
 - **Check for updates...** in the tray menu, and a quiet check at start-up, install a newer release in place. No more uninstall and reinstall.
 - Every screenshot on qacut.com is now the real app, taken by QACut itself.
 

@@ -114,8 +114,8 @@ function windowKeys(): [string, [string, string][]][] {
     [
       "Quick shot window",
       [
-        ["Enter", "save the note and copy the shot: path and note as text, picture with the note under it"],
-        ["Ctrl+Enter", "finish and hand off: copy every shot's path and note"],
+        ["Enter", "copy for a person: the picture with the note under it; the batch stays open"],
+        ["Ctrl+Shift+A", "hand off to an agent: the path and note, or every shot in the batch, which then closes"],
         ["Ctrl+Shift+C", "copy the marked-up image alone"],
         ["Shift+Enter", "new line in the note"],
         ["Esc", "keep the shot, no note"],

@@ -42,7 +42,7 @@ So you can send the arrow-and-blur version now and still have the clean capture 
 - Blur is pixelation. The text underneath is really gone from `01.png`, not softened, so an account number or a name cannot be recovered by sharpening the image.
 - The **Step** counter puts numbered markers on the shot, the fastest way to say "first here, then here, then here" on a single screenshot.
 - **Copy image** writes the marks into the file before it copies, so the saved shot and the pasted one are the same picture.
-- No note is needed for a person. If you type one and press `Enter`, it stays beside the shot in the batch folder for later.
+- Type a note and press `Enter` and it is printed in a band under the picture, so the explanation travels with it. **Copy image** leaves the note off.
 
 ## Related
 

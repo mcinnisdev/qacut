@@ -464,12 +464,12 @@ async function loadQuickPrompts() {
     quickPrompt.replaceChildren();
     const none = document.createElement("option");
     none.value = "";
-    none.textContent = "Hand off as: path and note";
+    none.textContent = "Agent hand-off: path and note";
     quickPrompt.append(none);
     for (const p of mine) {
       const o = document.createElement("option");
       o.value = p.id;
-      o.textContent = `Hand off as: ${p.name || "Untitled prompt"}`;
+      o.textContent = `Agent hand-off: ${p.name || "Untitled prompt"}`;
       quickPrompt.append(o);
     }
     quickPrompt.hidden = false;
@@ -493,11 +493,11 @@ function showQuickBatch(n: number) {
   quickBatch = n;
   quickCount.textContent = n > 1 ? `Quick shot ${String(n).padStart(2, "0")} in this batch` : "Quick shot";
   quickNewBtn.hidden = n < 2;
-  quickFinishBtn.textContent = n > 1 ? `Finish and hand off (${n})` : "Finish and hand off";
+  quickFinishBtn.textContent = n > 1 ? `Hand off to agent (${n})` : "Hand off to agent";
   quickHint.textContent =
     n > 1
-      ? `Enter saves this note and copies the shot: paste it into a terminal for the path and note, or into a chat for the picture with the note under it. Ctrl+Enter copies all ${n} shots with their notes and closes the batch. Copy image is the picture alone.`
-      : `Enter saves the note and copies the shot both ways: paste into a terminal for the path and note, or into a chat or email for the picture with the note under it. Take more with ${quickKey}. Copy image is the picture alone.`;
+      ? `Enter copies this picture with its note under it, for a person, and keeps the batch open. Ctrl+Shift+A hands all ${n} shots with their notes to an agent and closes the batch. Copy image is the picture alone.`
+      : `Enter copies the picture with your note under it, for a chat, an email or a ticket. Ctrl+Shift+A hands the path and note to an agent instead. Take more with ${quickKey}; they join the batch. Copy image is the picture alone.`;
 }
 
 function status(text: string) {
@@ -507,9 +507,12 @@ function status(text: string) {
   }, 2500);
 }
 
-/// Saves the note and this shot's marks, copies (this shot, or the whole
-/// batch with `all`) and closes.
-async function quickSave(all: boolean) {
+/// Saves the note and this shot's marks, copies, and closes. For a person
+/// (`agent` false) the clipboard gets the picture with the note under it
+/// and the batch stays open. For an agent it gets the path and note as
+/// text, the whole batch when there is more than one shot, and the batch
+/// closes.
+async function quickSave(agent: boolean) {
   if (done) return;
   done = true;
   try {
@@ -517,8 +520,8 @@ async function quickSave(all: boolean) {
       done = false;
       return;
     }
-    // A batch hand-off is text only; a single shot also travels as the picture.
-    const pngBase64 = !all || quickBatch <= 1 ? await captionedPng(quickNote.value) : null;
+    const pngBase64 = agent ? null : await captionedPng(quickNote.value);
+    const all = agent && quickBatch > 1;
     await invoke("save_quick", { note: quickNote.value, all, prompt: quickPrompt.value || null, pngBase64 });
   } catch (err) {
     done = false;
@@ -722,11 +725,15 @@ window.addEventListener("keydown", (e) => {
     void quickCopyImage();
     return;
   }
-  if (quick && e.key === "Enter" && !e.shiftKey) {
-    // Same keys as the note box: Enter saves and keeps the batch open,
-    // Ctrl+Enter finishes and hands off, Shift+Enter is a new line.
+  if (quick && (e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "a") {
+    // The agent chord: the A says so. Everything else goes to a person.
     e.preventDefault();
-    void quickSave(e.ctrlKey || e.metaKey);
+    void quickSave(true);
+    return;
+  }
+  if (quick && e.key === "Enter" && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+    e.preventDefault();
+    void quickSave(false);
     return;
   }
   if (inField) {
@@ -850,7 +857,7 @@ async function boot() {
     (document.getElementById("save") as HTMLButtonElement).hidden = true;
     (document.getElementById("cancel") as HTMLButtonElement).hidden = true;
     footKeys.innerHTML =
-      "<kbd>Enter</kbd> save + copy <kbd>Ctrl</kbd>+<kbd>Enter</kbd> finish and hand off <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd> copy image <kbd>Esc</kbd> keep, no note";
+      "<kbd>Enter</kbd> copy for a person <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd> hand off to agent <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd> copy image <kbd>Esc</kbd> keep, no note";
     try {
       const hk = await invoke<{ quick: string }>("get_hotkeys");
       if (hk.quick) quickKey = keyLabel(hk.quick);
