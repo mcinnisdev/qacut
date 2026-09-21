@@ -11,7 +11,7 @@ const columns = [
   {
     title: "Product",
     links: [
-      { text: "Download", href: "https://github.com/mcinnisdev/qacut/releases/latest" },
+      { text: "Download", href: "/download" },
       { text: "Changelog", href: "/changelog" },
       { text: "Keyboard shortcuts", href: "/docs/shortcuts" },
       { text: "Prompt library", href: "/docs/prompts" },

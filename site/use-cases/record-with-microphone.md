@@ -38,4 +38,4 @@ The narration is recorded on the same clock as the frames. When you set **Start 
 - [Organize screenshots into a document and export it](/use-cases/organize-and-export), when the steps should be read rather than watched.
 - [Polished screen recordings](/docs/studio) in the docs.
 
-[How it works in detail](/docs/studio) · [Download QACut](https://github.com/mcinnisdev/qacut/releases/latest)
+[How it works in detail](/docs/studio) · [Download QACut](/download)

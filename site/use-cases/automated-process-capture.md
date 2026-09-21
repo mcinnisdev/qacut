@@ -63,4 +63,4 @@ No video is made. Agents cannot do anything with one, and recordings for people 
 - [Record polished screen recordings](/use-cases/polished-screen-recordings): document or video? The same region and countdown, but the studio makes an MP4 for people.
 - [Bundles for agents](/docs/qacut) in the docs.
 
-[How it works in detail](/docs/qacut) · [Download QACut](https://github.com/mcinnisdev/qacut/releases/latest)
+[How it works in detail](/docs/qacut) · [Download QACut](/download)

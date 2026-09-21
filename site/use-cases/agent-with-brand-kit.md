@@ -59,4 +59,4 @@ The built-in prompt tells the agent to match the kit. The agent reads `bundle.md
 - [Brand a screen recording with your logo and title](/use-cases/record-with-brand): the same brand folder, on a video.
 - [Bundles for agents](/docs/qacut) and [Brand kit](/docs/brand-kit) in the docs.
 
-[How it works in detail](/docs/qacut) · [Download QACut](https://github.com/mcinnisdev/qacut/releases/latest)
+[How it works in detail](/docs/qacut) · [Download QACut](/download)

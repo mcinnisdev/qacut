@@ -60,4 +60,4 @@ The **Fix issues** prompt asks the agent to work through the screenshots and fix
 - [Hand a bundle to an AI agent with your brand kit](/use-cases/agent-with-brand-kit), the other built-in purpose.
 - [Bundles for agents](/docs/qacut) in the docs.
 
-[How it works in detail](/docs/qacut) · [Download QACut](https://github.com/mcinnisdev/qacut/releases/latest)
+[How it works in detail](/docs/qacut) · [Download QACut](/download)

@@ -36,4 +36,4 @@ An MP4 in the recording's folder with the background, frame, title, subtitle and
 - [Hand a bundle to an AI agent with your brand kit](/use-cases/agent-with-brand-kit): the same brand folder, in a document an agent writes.
 - [Polished screen recordings](/docs/studio) and [Brand kit](/docs/brand-kit) in the docs.
 
-[How it works in detail](/docs/studio) · [Download QACut](https://github.com/mcinnisdev/qacut/releases/latest)
+[How it works in detail](/docs/studio) · [Download QACut](/download)

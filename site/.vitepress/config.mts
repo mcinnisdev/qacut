@@ -86,7 +86,7 @@ export default defineConfig({
       },
       { text: "Changelog", link: "/changelog" },
       { text: "Feedback", link: "/feedback" },
-      { text: "Download", link: "https://github.com/mcinnisdev/qacut/releases/latest" },
+      { text: "Download", link: "/download" },
       { text: "GitHub", link: "https://github.com/mcinnisdev/qacut" },
     ],
     sidebar: {

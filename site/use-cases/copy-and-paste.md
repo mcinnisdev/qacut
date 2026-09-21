@@ -48,4 +48,4 @@ A `notes.md` in the folder lists every shot in the batch, and any note you did t
 - [Organize screenshots into a document and export it](/use-cases/organize-and-export), when one shot becomes twenty.
 - [Quick shots](/docs/quick) in the docs.
 
-[How it works in detail](/docs/quick) · [Download QACut](https://github.com/mcinnisdev/qacut/releases/latest)
+[How it works in detail](/docs/quick) · [Download QACut](/download)

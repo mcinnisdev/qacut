@@ -13,7 +13,7 @@ titleTemplate: Screen capture that hands off
 <h1>Capture your screen.<br /><em>Hand off the work.</em></h1>
 <p class="lead">Screenshots and notes become a bundle an AI agent can work from. Screen recordings become walkthroughs people will actually watch. One tray icon, no account, and nothing leaves your machine unless you send it.</p>
 <div class="qc-actions">
-<a class="qc-btn primary" href="https://github.com/mcinnisdev/qacut/releases/latest">Download for Windows</a>
+<a class="qc-btn primary" href="https://github.com/mcinnisdev/qacut/releases/latest/download/QACut-setup.exe">Download for Windows</a>
 <a class="qc-btn outline" href="/docs/getting-started">Getting started</a>
 </div>
 <ul class="qc-trust">
@@ -129,7 +129,7 @@ Toggle animates but the state never saves.
 <div class="qc-cta-row">
 <p>Ready when you are.</p>
 <div class="qc-actions">
-<a class="qc-btn primary" href="https://github.com/mcinnisdev/qacut/releases/latest">Download for Windows</a>
+<a class="qc-btn primary" href="https://github.com/mcinnisdev/qacut/releases/latest/download/QACut-setup.exe">Download for Windows</a>
 <a class="qc-btn outline" href="/docs/getting-started">See the docs</a>
 </div>
 </div>
@@ -197,7 +197,7 @@ Toggle animates but the state never saves.
 <p class="lead">Ctrl+Shift+3 takes a still at the start, at every click and at the end, each ringed where the click landed. The review window then walks them with markup, a note, prev and next, and delete for the ones that are noise.</p>
 <div class="qc-spot-links">
 <a class="qc-more" href="/docs/qacut">Auto-capture in the docs<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
-<a class="qc-btn outline" href="https://github.com/mcinnisdev/qacut/releases/latest">Download for Windows</a>
+<a class="qc-btn outline" href="https://github.com/mcinnisdev/qacut/releases/latest/download/QACut-setup.exe">Download for Windows</a>
 </div>
 </div>
 <div class="qc-spot-visual">
@@ -250,7 +250,7 @@ Toggle animates but the state never saves.
 <p class="lead">The cursor, clicks and keys are recorded as data and drawn back in, so zooms, trims, cuts, key badges, the camera bubble, the title and the logo are all controls in the studio. Export writes exactly what you previewed.</p>
 <div class="qc-spot-links">
 <a class="qc-more" href="/docs/studio">The Studio in the docs<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
-<a class="qc-btn outline" href="https://github.com/mcinnisdev/qacut/releases/latest">Download for Windows</a>
+<a class="qc-btn outline" href="https://github.com/mcinnisdev/qacut/releases/latest/download/QACut-setup.exe">Download for Windows</a>
 </div>
 </div>
 <div class="qc-spot-visual">
@@ -389,7 +389,7 @@ any recording, before changing anything."</pre>
 </div>
 <div class="qc-actions">
 <a class="qc-btn primary" href="https://github.com/mcinnisdev/qacut">Star on GitHub</a>
-<a class="qc-btn outline" href="https://github.com/mcinnisdev/qacut/releases/latest">Download</a>
+<a class="qc-btn outline" href="https://github.com/mcinnisdev/qacut/releases/latest/download/QACut-setup.exe">Download</a>
 </div>
 </div>
 </section>

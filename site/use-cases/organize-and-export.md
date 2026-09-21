@@ -63,4 +63,4 @@ As a web page it is one self-contained file with the images embedded, ready to s
 - [Record polished screen recordings](/use-cases/polished-screen-recordings), when the same steps should be a video rather than a document.
 - [Bundles for agents](/docs/qacut) in the docs.
 
-[How it works in detail](/docs/qacut) · [Download QACut](https://github.com/mcinnisdev/qacut/releases/latest)
+[How it works in detail](/docs/qacut) · [Download QACut](/download)

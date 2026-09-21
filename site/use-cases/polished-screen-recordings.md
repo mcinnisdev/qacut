@@ -48,4 +48,4 @@ In the studio, everything the recording captured is a control rather than a fact
 - [Auto-capture a process into step-by-step screenshots](/use-cases/automated-process-capture): document or video? Auto-capture gives you stills and a document instead of an MP4.
 - [Polished screen recordings](/docs/studio) in the docs.
 
-[How it works in detail](/docs/studio) · [Download QACut](https://github.com/mcinnisdev/qacut/releases/latest)
+[How it works in detail](/docs/studio) · [Download QACut](/download)

@@ -51,4 +51,4 @@ So you can send the arrow-and-blur version now and still have the clean capture 
 - [Organize screenshots into a document and export it](/use-cases/organize-and-export): the same tools on every shot in a bundle, from the bundle window.
 - [Quick shots](/docs/quick) in the docs.
 
-[How it works in detail](/docs/quick) · [Download QACut](https://github.com/mcinnisdev/qacut/releases/latest)
+[How it works in detail](/docs/quick) · [Download QACut](/download)

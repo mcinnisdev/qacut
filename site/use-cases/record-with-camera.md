@@ -35,4 +35,4 @@ An MP4 in the recording's folder with the camera bubble composited on top of the
 - [Brand a screen recording with your logo and title](/use-cases/record-with-brand), for the background, title and logo around the frame.
 - [Polished screen recordings](/docs/studio) in the docs.
 
-[How it works in detail](/docs/studio) · [Download QACut](https://github.com/mcinnisdev/qacut/releases/latest)
+[How it works in detail](/docs/studio) · [Download QACut](/download)

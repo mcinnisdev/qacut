@@ -45,4 +45,4 @@ The cursor, clicks and keystrokes are recorded as data, then drawn back in prope
 </div>
 </div>
 
-[Getting started](/docs/getting-started) · [Download QACut](https://github.com/mcinnisdev/qacut/releases/latest)
+[Getting started](/docs/getting-started) · [Download QACut](/download)

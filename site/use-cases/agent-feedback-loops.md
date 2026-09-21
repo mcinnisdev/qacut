@@ -68,4 +68,4 @@ On disk, each PNG has its note in a small markdown file beside it, and `notes.md
 - [Build a task list of UI fixes for an AI agent](/use-cases/task-list-for-agents), when the list grows past a handful or spans several pages.
 - [Quick shots](/docs/quick) in the docs.
 
-[How it works in detail](/docs/quick) · [Download QACut](https://github.com/mcinnisdev/qacut/releases/latest)
+[How it works in detail](/docs/quick) · [Download QACut](/download)

@@ -8,6 +8,15 @@ aside: false
 
 What each release lets you do that the one before did not. Newest first; every heading links to the release, with the installer and the full list of commits.
 
+## 2.5.2 (2026-09-21)
+
+[Release notes and installer](https://github.com/mcinnisdev/qacut/releases/tag/v2.5.2)
+
+- Updates install through the signed setup exe, so the Windows prompt names QACut instead of a temporary file.
+- Windows lists the publisher as QACut.
+- qacut.com has a [download page](/download) and Download buttons that fetch the installer directly; each release also carries the installers under fixed names, QACut-setup.exe and QACut.msi.
+- The uninstaller inside the installer is signed too.
+
 ## 2.5.1 (2026-09-21)
 
 [Release notes and installer](https://github.com/mcinnisdev/qacut/releases/tag/v2.5.1)

@@ -86,7 +86,19 @@ jobs:
           releaseName: QACut ${{ github.ref_name }}
           releaseDraft: true
           includeUpdaterJson: true
+          # Updates install through the exe: UAC then shows the product name
+          # rather than the temp file's random name an MSI gets.
+          updaterJsonPreferNsis: true
           args: ${{ env.TAURI_CI_CONFIG }}
+
+      # Copies of the installers under names that never change, so the site's
+      # Download button can point at releases/latest/download/QACut-setup.exe.
+      - name: Stable-name installers
+        shell: bash
+        run: |
+          cp src-tauri/target/release/bundle/nsis/QACut_*_x64-setup.exe QACut-setup.exe
+          cp src-tauri/target/release/bundle/msi/QACut_*_x64_en-US.msi QACut.msi
+          gh release upload "$GITHUB_REF_NAME" QACut-setup.exe QACut.msi --clobber
 
       # Tauri does not show what the signing command printed; the script
       # logs it, and this shows it whether the build passed or not.
