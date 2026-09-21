@@ -3,15 +3,11 @@ title: Download QACut
 description: "Download QACut for Windows. Free, open source, signed. One installer; updates arrive through the app."
 sidebar: false
 aside: false
-head:
-  - - meta
-    - http-equiv: refresh
-      content: "1; url=https://github.com/mcinnisdev/qacut/releases/latest/download/QACut-setup.exe"
 ---
 
 # Download QACut
 
-Your download starts in a moment. If it does not, use the button.
+One installer, about 3 MB. Free, open source, signed.
 
 <div class="qc qc-embed">
 <p><a class="qc-btn primary" href="https://github.com/mcinnisdev/qacut/releases/latest/download/QACut-setup.exe">Download for Windows</a></p>
