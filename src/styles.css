@@ -1364,6 +1364,30 @@ body.edit {
   background: var(--signal);
 }
 
+/* Colour swatches: for the next mark, or the selected one. */
+.swatches {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: 8px;
+  padding: 0 4px;
+}
+.swatch {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--c);
+  border: 2px solid transparent;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+.swatch:hover {
+  transform: scale(1.12);
+}
+.swatch.on {
+  border-color: var(--text);
+}
+
 .edit-main {
   flex: 1;
   display: flex;

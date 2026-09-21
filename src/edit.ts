@@ -24,11 +24,11 @@ async function closeSelf() {
   }
 }
 type Mark =
-  | { kind: "arrow"; x1: number; y1: number; x2: number; y2: number }
-  | { kind: "rect"; x: number; y: number; w: number; h: number }
+  | { kind: "arrow"; x1: number; y1: number; x2: number; y2: number; color?: string }
+  | { kind: "rect"; x: number; y: number; w: number; h: number; color?: string }
   | { kind: "blur"; x: number; y: number; w: number; h: number }
-  | { kind: "step"; x: number; y: number; n: number }
-  | { kind: "text"; x: number; y: number; text: string }
+  | { kind: "step"; x: number; y: number; n: number; color?: string }
+  | { kind: "text"; x: number; y: number; text: string; color?: string; w?: number }
   | { kind: "click"; x: number; y: number };
 
 interface Markup {
@@ -72,6 +72,24 @@ let marksDirty = false;
 const ACCENT = "#ff5b5b";
 const CLICK = "rgb(255, 196, 0)";
 
+/// The colour a mark was drawn in; older marks have none and get the accent.
+function markColor(m: Mark): string {
+  return "color" in m && m.color ? m.color : ACCENT;
+}
+
+function withAlpha(hex: string, a: number) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+}
+
+/// Ink that reads on a swatch: dark on the light and mid colours (white on
+/// coral is poor contrast), white on the dark ones.
+function contrastOn(hex: string) {
+  const n = parseInt(hex.slice(1), 16);
+  const l = (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+  return l > 0.5 ? "#141414" : "#ffffff";
+}
+
 title.textContent = label;
 
 function setTool(t: Tool) {
@@ -96,9 +114,10 @@ function clickRadius() {
 
 function drawMark(m: Mark) {
   const u = unit();
+  const c = markColor(m);
   ctx.save();
-  ctx.strokeStyle = ACCENT;
-  ctx.fillStyle = ACCENT;
+  ctx.strokeStyle = c;
+  ctx.fillStyle = c;
   ctx.lineWidth = u;
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
@@ -123,7 +142,7 @@ function drawMark(m: Mark) {
     ctx.closePath();
     ctx.fill();
   } else if (m.kind === "rect") {
-    ctx.fillStyle = "rgba(255, 91, 91, 0.12)";
+    ctx.fillStyle = withAlpha(c, 0.12);
     ctx.fillRect(m.x, m.y, m.w, m.h);
     ctx.strokeRect(m.x, m.y, m.w, m.h);
   } else if (m.kind === "blur") {
@@ -146,22 +165,23 @@ function drawMark(m: Mark) {
     ctx.beginPath();
     ctx.arc(m.x, m.y, r, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = "#fff";
+    ctx.fillStyle = contrastOn(c);
     ctx.font = `bold ${Math.round(r * 1.25)}px ${getComputedStyle(document.body).fontFamily}`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(String(m.n), m.x, m.y + r * 0.05);
   } else if (m.kind === "text") {
-    // A label: white on the accent, rounded, sized with the image.
-    const { fs, pad, w, h } = textBox(m);
+    // A label: ink that contrasts with its colour, rounded, sized with the
+    // image; wraps inside a width set by its handle.
+    const { fs, pad, lh, lines, w, h } = textBox(m);
     ctx.beginPath();
     ctx.roundRect(m.x, m.y, w, h, u * 1.5);
     ctx.fill();
-    ctx.fillStyle = "#fff";
+    ctx.fillStyle = contrastOn(c);
     ctx.font = textFont(fs);
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
-    ctx.fillText(m.text, m.x + pad, m.y + h / 2 + fs * 0.04);
+    lines.forEach((l, i) => ctx.fillText(l, m.x + pad, m.y + pad + i * lh + lh / 2 + fs * 0.04));
   } else {
     // The recorder's click ring: amber, filled, like the GIF shows it.
     const r = clickRadius();
@@ -184,16 +204,27 @@ function textFont(fs: number) {
   return `600 ${fs}px ${getComputedStyle(document.body).fontFamily}`;
 }
 
-/// A text label's box: font size, padding and outer size.
-function textBox(m: { text: string }) {
+/// A text label's box: font size, padding, line height, the lines (wrapped
+/// to the label's width when it has one) and the outer size.
+function textBox(m: { text: string; w?: number }) {
   const u = unit();
   const fs = Math.round(u * 3.6);
   const pad = u * 1.5;
+  const lh = Math.round(fs * 1.3);
   ctx.save();
   ctx.font = textFont(fs);
-  const tw = ctx.measureText(m.text).width;
+  const lines = m.w ? wrapLines(ctx, m.text, Math.max(fs, m.w - pad * 2)) : m.text.split(/\r?\n/);
+  const tw = lines.reduce((max, l) => Math.max(max, ctx.measureText(l).width), 0);
   ctx.restore();
-  return { fs, pad, w: tw + pad * 2, h: fs + pad * 2 };
+  const w = m.w ?? tw + pad * 2;
+  return { fs, pad, lh, lines, w, h: Math.max(1, lines.length) * lh + pad * 2 };
+}
+
+/// The resize handle at a selected label's bottom-right corner.
+function handleAt(m: Mark) {
+  if (m.kind !== "text") return null;
+  const b = bounds(m);
+  return { x: b.x + b.w, y: b.y + b.h, r: unit() * 2.5 };
 }
 
 function bounds(m: Mark) {
@@ -223,7 +254,21 @@ function drawSelection(m: Mark) {
   ctx.lineWidth = 1;
   ctx.setLineDash([4, 3]);
   ctx.strokeRect(b.x - pad, b.y - pad, b.w + pad * 2, b.h + pad * 2);
+  const h = handleAt(m);
+  if (h) {
+    ctx.setLineDash([]);
+    ctx.fillStyle = "#fff";
+    ctx.strokeStyle = "#000";
+    ctx.fillRect(h.x - h.r, h.y - h.r, h.r * 2, h.r * 2);
+    ctx.strokeRect(h.x - h.r, h.y - h.r, h.r * 2, h.r * 2);
+  }
   ctx.restore();
+}
+
+function overHandle(p: { x: number; y: number }) {
+  if (selected === null) return false;
+  const h = handleAt(marks[selected]);
+  return h !== null && Math.abs(p.x - h.x) <= h.r * 1.6 && Math.abs(p.y - h.y) <= h.r * 1.6;
 }
 
 function touch() {
@@ -287,11 +332,16 @@ function shift(m: Mark, dx: number, dy: number): Mark {
 
 let anchor: { x: number; y: number } | null = null;
 let dragFrom: { x: number; y: number } | null = null;
+let resizing = false;
 
 canvas.addEventListener("mousedown", (e) => {
   if (e.button !== 0) return;
   const p = pos(e);
   if (tool === "move") {
+    if (overHandle(p)) {
+      resizing = true;
+      return;
+    }
     selected = hit(p.x, p.y);
     dragFrom = selected === null ? null : p;
     render();
@@ -299,7 +349,7 @@ canvas.addEventListener("mousedown", (e) => {
   }
   if (tool === "step") {
     const n = marks.filter((m) => m.kind === "step").length + 1;
-    marks.push({ kind: "step", x: p.x, y: p.y, n });
+    marks.push({ kind: "step", x: p.x, y: p.y, n, color });
     touch();
     render();
     return;
@@ -308,7 +358,7 @@ canvas.addEventListener("mousedown", (e) => {
     // Without this the default mousedown action moves focus off the label
     // box the moment it opens, and the blur throws the label away.
     e.preventDefault();
-    beginText(p, e);
+    beginText(p);
     return;
   }
   anchor = p;
@@ -318,28 +368,80 @@ canvas.addEventListener("mousedown", (e) => {
 // then drawn onto the shot on Enter.
 const textEntry = document.getElementById("text-entry") as HTMLInputElement;
 let textAt: { x: number; y: number } | null = null;
+let textEditing: number | null = null;
 
-function beginText(p: { x: number; y: number }, e: MouseEvent) {
+/// Opens the label box at image point `p`; with `edit`, on that mark's text.
+function beginText(p: { x: number; y: number }, edit: number | null = null) {
   const body = bodyEl.getBoundingClientRect();
+  const r = canvas.getBoundingClientRect();
   textAt = p;
-  textEntry.value = "";
-  textEntry.style.left = `${e.clientX - body.left}px`;
-  textEntry.style.top = `${e.clientY - body.top}px`;
+  textEditing = edit;
+  const m = edit === null ? null : marks[edit];
+  textEntry.value = m && m.kind === "text" ? m.text : "";
+  textEntry.style.left = `${r.left - body.left + p.x * scale}px`;
+  textEntry.style.top = `${r.top - body.top + p.y * scale}px`;
   textEntry.hidden = false;
   textEntry.focus();
+  textEntry.select();
 }
 
 function endText(commit: boolean) {
   if (textEntry.hidden) return;
   const text = textEntry.value.trim();
-  if (commit && textAt && text) {
-    marks.push({ kind: "text", x: textAt.x, y: textAt.y, text });
-    touch();
+  if (commit && textAt) {
+    if (textEditing !== null) {
+      const m = marks[textEditing];
+      if (m.kind === "text") {
+        if (text) marks[textEditing] = { ...m, text };
+        else marks.splice(textEditing, 1);
+        selected = null;
+        touch();
+      }
+    } else if (text) {
+      marks.push({ kind: "text", x: textAt.x, y: textAt.y, text, color });
+      touch();
+    }
   }
   textEntry.hidden = true;
   textAt = null;
+  textEditing = null;
   render();
 }
+
+// ------------------------------------------------------------ colour
+
+const swatches = Array.from(document.querySelectorAll<HTMLButtonElement>(".swatch"));
+let color = ACCENT;
+try {
+  const saved = localStorage.getItem("qacut.markColor");
+  if (saved && swatches.some((b) => b.dataset.color === saved)) color = saved;
+} catch {
+  // Fine without it.
+}
+
+/// The colour for new marks; with a mark selected, that mark's too.
+function setColor(c: string) {
+  color = c;
+  try {
+    localStorage.setItem("qacut.markColor", c);
+  } catch {
+    // Fine without it.
+  }
+  for (const b of swatches) b.classList.toggle("on", b.dataset.color === c);
+  textEntry.style.background = c;
+  textEntry.style.borderColor = c;
+  textEntry.style.color = contrastOn(c);
+  if (selected !== null) {
+    const m = marks[selected];
+    if (m.kind !== "blur" && m.kind !== "click") {
+      marks[selected] = { ...m, color: c };
+      touch();
+      render();
+    }
+  }
+}
+for (const b of swatches) b.addEventListener("click", () => setColor(b.dataset.color ?? ACCENT));
+setColor(color);
 
 textEntry.addEventListener("keydown", (e) => {
   e.stopPropagation();
@@ -356,28 +458,50 @@ textEntry.addEventListener("blur", () => endText(true));
 canvas.addEventListener("mousemove", (e) => {
   const p = pos(e);
   if (tool === "move") {
+    if (resizing && selected !== null) {
+      const m = marks[selected];
+      if (m.kind === "text") {
+        marks[selected] = { ...m, w: Math.max(unit() * 10, p.x - m.x) };
+        touch();
+        render();
+      }
+      return;
+    }
     if (dragFrom !== null && selected !== null) {
       marks[selected] = shift(marks[selected], p.x - dragFrom.x, p.y - dragFrom.y);
       dragFrom = p;
       touch();
       render();
     } else {
-      canvas.style.cursor = hit(p.x, p.y) === null ? "default" : "move";
+      canvas.style.cursor = overHandle(p) ? "nwse-resize" : hit(p.x, p.y) === null ? "default" : "move";
     }
     return;
   }
   if (!anchor) return;
   if (tool === "arrow") {
-    draft = { kind: "arrow", x1: anchor.x, y1: anchor.y, x2: p.x, y2: p.y };
+    draft = { kind: "arrow", x1: anchor.x, y1: anchor.y, x2: p.x, y2: p.y, color };
   } else if (tool === "rect" || tool === "blur") {
     const r = normalized(anchor.x, anchor.y, p.x, p.y);
-    draft = tool === "rect" ? { kind: "rect", ...r } : { kind: "blur", ...r };
+    draft = tool === "rect" ? { kind: "rect", ...r, color } : { kind: "blur", ...r };
   }
   render();
 });
 
+// Double-click a label to reword it.
+canvas.addEventListener("dblclick", (e) => {
+  const p = pos(e);
+  const i = hit(p.x, p.y);
+  if (i === null || marks[i].kind !== "text") return;
+  e.preventDefault();
+  setTool("move");
+  selected = i;
+  render();
+  beginText({ x: marks[i].x, y: marks[i].y }, i);
+});
+
 window.addEventListener("mouseup", () => {
   dragFrom = null;
+  resizing = false;
   if (!anchor) return;
   anchor = null;
   if (draft) {

@@ -12,7 +12,7 @@ A raw screenshot makes the reader hunt. An arrow on the button, a highlight on t
 ## The flow
 
 1. Press `Ctrl+Shift+1` and drag the region. The shot opens large with the tools along the top.
-2. Pick a tool: **Arrow**, **Highlight**, **Blur**, the **Step** counter or a **Text** label, and draw on the shot. The keys `A`, `H`, `B`, `S` and `T` pick the same tools; `M` goes back to moving marks.
+2. Pick a tool: **Arrow**, **Highlight**, **Blur**, the **Step** counter or a **Text** label, and draw on the shot. The keys `A`, `H`, `B`, `S` and `T` pick the same tools; `M` goes back to moving marks. The swatches beside the tools pick the colour, for the next mark or the selected one.
 3. Nudge a mark with the arrow keys (ten pixels at a time with `Shift`), `Delete` removes the selected one, and `Ctrl+Z` undoes.
 4. Press **Copy**, or `Ctrl+C`.
 5. Paste into the chat, the email or the ticket.

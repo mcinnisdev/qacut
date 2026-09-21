@@ -8,6 +8,13 @@ aside: false
 
 What each release lets you do that the one before did not. Newest first; every heading links to the release, with the installer and the full list of commits.
 
+## 2.5.0 (2026-09-21)
+
+[Release notes and installer](https://github.com/mcinnisdev/qacut/releases/tag/v2.5.0)
+
+- Colour swatches in the editor: coral, amber, green, blue, black or white for arrows, highlights, step counters and text labels. Pick before drawing, or with a mark selected to recolour it. The choice is remembered.
+- Text labels use dark or light ink to suit their colour, wrap inside a width you set by dragging their corner handle, and can be reworded with a double-click.
+
 ## 2.4.1 (2026-09-21)
 
 [Release notes and installer](https://github.com/mcinnisdev/qacut/releases/tag/v2.4.1)

@@ -8,7 +8,7 @@ QACut Basic is the quick lane. A quick shot is one screenshot, marked up if you 
 
 ## Taking one
 
-`Ctrl+Shift+1` freezes the screen. Drag a region and the shot opens large, with the markup tools along the top and the note beside it. Mark it up if it helps: arrow, highlight, blur, step counters, or a **Text** label typed straight onto the picture. Add a note if the picture needs words. Then say who it is for:
+`Ctrl+Shift+1` freezes the screen. Drag a region and the shot opens large, with the markup tools along the top and the note beside it. Mark it up if it helps: arrow, highlight, blur, step counters, or a **Text** label typed straight onto the picture. The swatches in the toolbar set the colour of the next mark, or of the one selected; a label's text is dark or light to suit its colour. Drag a label's corner handle to make it wrap, double-click it to reword it. Add a note if the picture needs words. Then say who it is for:
 
 - **Copy** (`Ctrl+C`) is for a person. The picture goes on the clipboard, and if you wrote a note it is printed in a band under the picture, so the two travel together into Teams, Slack, an email or a ticket. No note, no band.
 - **Copy for agent** (`Ctrl+Shift+A`) is for an agent. The screenshot's path and your note go on the clipboard as text, ready to paste into a terminal with whatever else you want to say. The A is the tell.
