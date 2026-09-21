@@ -24,3 +24,5 @@ site/.vitepress/cache/
 # Internal notes and plans: Nick-only, never pushed
 /notes/
 __pycache__/
+# Generated in the release workflow for code signing.
+src-tauri/tauri.ci.conf.json
