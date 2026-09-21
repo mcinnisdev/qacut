@@ -26,7 +26,7 @@
 
 QACut lives in the system tray. Press a hotkey, drag a region, do the thing. No account, no upload, no telemetry: everything is plain files under `~/QACut/` until you choose to send them somewhere.
 
-Free and open source under the [MIT License](LICENSE). Windows 10 (2004+) or 11, x64. The installers are not code-signed yet, so SmartScreen warns on first run: **More info**, then **Run anyway**. After that, **Check for updates...** in the tray menu installs newer releases in place, and QACut also checks quietly when it starts.
+Free and open source under the [MIT License](LICENSE). Windows 10 (2004+) or 11, x64. The app and installers are code-signed (SSL.com). While the certificate is new, SmartScreen may still warn on first run: **More info**, then **Run anyway**. After that, **Check for updates...** in the tray menu installs newer releases in place, and QACut also checks quietly when it starts.
 
 ## Three modes, one tray
 

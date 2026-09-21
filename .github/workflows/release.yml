@@ -105,7 +105,7 @@ jobs:
           prev=$(git tag --list 'v*' --sort=-v:refname | grep -vx "$GITHUB_REF_NAME" | head -1)
           range=${prev:+$prev..}$GITHUB_REF_NAME
           {
-            echo "Windows 10 (2004+) or 11, x64. The installers are not code-signed yet: SmartScreen will warn on first run; choose **More info**, then **Run anyway**."
+            echo "Windows 10 (2004+) or 11, x64. The app and installers are code-signed (SSL.com, Nicholas McInnis). While the certificate is new, SmartScreen may still warn on first run: choose **More info**, then **Run anyway**."
             echo
             echo "## What changed"
             echo

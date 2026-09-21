@@ -10,7 +10,7 @@ QACut lives in the system tray. There is no window to open first: press a hotkey
 
 Download the installer from the [latest release](https://github.com/mcinnisdev/qacut/releases/latest) and run it. Windows 10 (2004 or later) or Windows 11, 64-bit.
 
-The installers are not code-signed yet, so SmartScreen will warn on first run. Choose **More info**, then **Run anyway**.
+The app and its installers are code-signed. While the certificate is new, SmartScreen may still warn on first run; choose **More info**, then **Run anyway**. That fades as the certificate builds a record.
 
 After install, look for the coral scissors in the tray. Left-click it for the menu.
 
