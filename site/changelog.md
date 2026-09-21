@@ -8,6 +8,13 @@ aside: false
 
 What each release lets you do that the one before did not. Newest first; every heading links to the release, with the installer and the full list of commits.
 
+## 2.4.1 (2026-09-21)
+
+[Release notes and installer](https://github.com/mcinnisdev/qacut/releases/tag/v2.4.1)
+
+- The Text tool works with a real mouse: the label box no longer loses focus the moment it opens.
+- The quick shot panel drops its explainer paragraph; the buttons say what they do.
+
 ## 2.4.0 (2026-09-21)
 
 [Release notes and installer](https://github.com/mcinnisdev/qacut/releases/tag/v2.4.0)

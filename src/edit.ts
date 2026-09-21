@@ -305,6 +305,9 @@ canvas.addEventListener("mousedown", (e) => {
     return;
   }
   if (tool === "text") {
+    // Without this the default mousedown action moves focus off the label
+    // box the moment it opens, and the blur throws the label away.
+    e.preventDefault();
     beginText(p, e);
     return;
   }
@@ -591,16 +594,6 @@ async function loadQuickPrompts() {
   }
 }
 
-function keyLabel(spec: string) {
-  return spec
-    .replace(/CommandOrControl|CmdOrCtrl|Control/g, "Ctrl")
-    .replace(/Super|Meta/g, "Win")
-    .replace(/Option/g, "Alt")
-    .replace(/Return/g, "Enter");
-}
-
-let quickKey = "Ctrl+Shift+1";
-
 function showBatch(b: QuickBatchInfo) {
   batch = b;
   const n = b.shots.length;
@@ -609,11 +602,8 @@ function showBatch(b: QuickBatchInfo) {
   quickBatchBtn.textContent = inBatch ? "Save to batch" : "Add to batch";
   quickDiscardBtn.textContent = inBatch ? "Remove from batch" : "Discard";
   quickCount.textContent = inBatch ? `Batch shot ${path.split(/[\\/]/).pop() ?? ""}` : "Quick shot";
-  quickHint.textContent = inBatch
-    ? "A shot from the batch. Save to batch keeps your changes; Copy and Copy for agent work on this one shot."
-    : n === 0
-      ? `Copy puts the picture on the clipboard, with your note printed under it if you wrote one. Copy for agent puts the path and note as text. Add to batch keeps it, to hand several shots to an agent at once. Take another with ${quickKey}.`
-      : `Copy and Copy for agent send this one shot. Add to batch puts it with the ${n} already waiting; Copy batch for agent in the strip sends them all.`;
+  // The buttons say what they do; no explainer.
+  quickHint.textContent = "";
   stripCount.textContent = n === 1 ? "Batch: 1 shot" : `Batch: ${n} shots`;
   renderStrip();
   if (n === 0) strip.hidden = true;
@@ -1132,12 +1122,6 @@ async function boot() {
     footKeys.innerHTML = inBatch
       ? "<kbd>Ctrl</kbd>+<kbd>C</kbd> copy <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd> copy for agent <kbd>Ctrl</kbd>+<kbd>B</kbd> save to batch <kbd>Esc</kbd> save and close"
       : "<kbd>Ctrl</kbd>+<kbd>C</kbd> copy <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd> copy for agent <kbd>Ctrl</kbd>+<kbd>B</kbd> add to batch <kbd>Esc</kbd> discard";
-    try {
-      const hk = await invoke<{ quick: string }>("get_hotkeys");
-      if (hk.quick) quickKey = keyLabel(hk.quick);
-    } catch {
-      // The default label is fine.
-    }
     if (inBatch) quickNote.value = await invoke<string>("quick_note", { path });
     await refreshBatch();
     if (inBatch && batch.shots.length) {
