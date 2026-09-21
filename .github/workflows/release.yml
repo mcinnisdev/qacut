@@ -66,6 +66,7 @@ jobs:
           $conf = @{ bundle = @{ windows = @{ signCommand = @{ cmd = "cmd"; args = @("/c", $sign, "%1") } } } }
           $conf | ConvertTo-Json -Depth 6 | Out-File -FilePath src-tauri/tauri.ci.conf.json -Encoding utf8
           "TAURI_CI_CONFIG=--config src-tauri/tauri.ci.conf.json" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "SIGN_LOG=$env:GITHUB_WORKSPACE\sign.log" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       # Builds the app, creates a draft release for the tag, and uploads
       # the MSI and NSIS installers to it.
@@ -86,6 +87,13 @@ jobs:
           releaseDraft: true
           includeUpdaterJson: true
           args: ${{ env.TAURI_CI_CONFIG }}
+
+      # Tauri does not show what the signing command printed; the script
+      # logs it, and this shows it whether the build passed or not.
+      - name: Signing log
+        if: ${{ always() && env.ESIGNER_USERNAME != '' }}
+        shell: bash
+        run: cat sign.log 2>/dev/null || echo "no signing log"
 
       # GitHub's own note generator lists pull requests, and this repo ships
       # by direct commits, so the notes are the commit subjects since the

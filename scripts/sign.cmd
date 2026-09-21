@@ -7,7 +7,7 @@ rem builds still work.
 rem
 rem Needs: CODESIGNTOOL_PATH (folder holding CodeSignTool.bat),
 rem ESIGNER_USERNAME, ESIGNER_PASSWORD, ESIGNER_CREDENTIAL_ID,
-rem ESIGNER_TOTP_SECRET.
+rem ESIGNER_TOTP_SECRET. Output goes to SIGN_LOG (Tauri shows none of it).
 setlocal
 if "%ESIGNER_USERNAME%"=="" (
   echo sign: no eSigner credentials, leaving %~nx1 unsigned
@@ -19,7 +19,9 @@ if not exist "%CODESIGNTOOL_PATH%\CodeSignTool.bat" (
 )
 set "TARGET=%~f1"
 pushd "%CODESIGNTOOL_PATH%"
-call CodeSignTool.bat sign -username="%ESIGNER_USERNAME%" -password="%ESIGNER_PASSWORD%" -credential_id="%ESIGNER_CREDENTIAL_ID%" -totp_secret="%ESIGNER_TOTP_SECRET%" -input_file_path="%TARGET%" -override=true
+if "%SIGN_LOG%"=="" set "SIGN_LOG=%TEMP%\qacut-sign.log"
+echo === %DATE% %TIME% %TARGET% >> "%SIGN_LOG%"
+call CodeSignTool.bat sign -username="%ESIGNER_USERNAME%" -password="%ESIGNER_PASSWORD%" -credential_id="%ESIGNER_CREDENTIAL_ID%" -totp_secret="%ESIGNER_TOTP_SECRET%" -input_file_path="%TARGET%" -override=true >> "%SIGN_LOG%" 2>&1
 set "RC=%ERRORLEVEL%"
 popd
 if not "%RC%"=="0" (
