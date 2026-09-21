@@ -48,7 +48,7 @@ const external = (href: string) => /^https?:/.test(href);
           <span><span class="qa">QA</span>Cut</span>
         </a>
         <p class="qc-footer-tag">Screen capture that hands off.</p>
-        <p class="qc-footer-legal">Free and open source under the MIT License.<br />© 2026 Nick McInnis.</p>
+        <p class="qc-footer-legal">Free and open source under the <a href="https://github.com/mcinnisdev/qacut/blob/main/LICENSE" target="_blank" rel="noreferrer">MIT License</a>. © 2026 Nick McInnis.<br /><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></p>
       </div>
       <nav v-for="col in columns" :key="col.title" class="qc-footer-col" :aria-label="col.title">
         <h2>{{ col.title }}</h2>
