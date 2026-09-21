@@ -8,6 +8,17 @@ aside: false
 
 What each release lets you do that the one before did not. Newest first; every heading links to the release, with the installer and the full list of commits.
 
+## 2.4.0 (2026-09-21)
+
+[Release notes and installer](https://github.com/mcinnisdev/qacut/releases/tag/v2.4.0)
+
+- The quick shot window is four decisions: **Copy** (`Ctrl+C`, the picture with your note printed under it if you wrote one), **Copy for agent** (`Ctrl+Shift+A`, the path and note as text), **Add to batch** (`Ctrl+B`) and **Discard** (`Esc`). No separate copy-with and copy-without.
+- The batch is visible: a strip along the bottom of the window lists every shot waiting for a hand-off. Open one to change it, drop one, **Copy batch for agent** to send them all.
+- A **Text** tool (`T`) puts a label straight on the picture.
+- The review window in a bundle has **Copy** too, for a shot with its note under it.
+- Tray items and hotkey names say what they copy and who it is for: **Copy quick batch for agent**, **Finish bundle and copy for agent**.
+- The keyboard shortcuts panel scrolls, and the caption band under a copied shot matches the shot's tone.
+
 ## 2.3.1 (2026-09-19)
 
 [Release notes and installer](https://github.com/mcinnisdev/qacut/releases/tag/v2.3.1)

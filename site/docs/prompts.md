@@ -17,8 +17,8 @@ Six texts ship with QACut. Each can be rewritten, and Reset puts the default bac
 
 | Prompt | Used when | Filled in |
 | --- | --- | --- |
-| Quick shot: one shot | `Ctrl+Shift+A` on a single quick shot | `{path}`, `{note}` |
-| Quick shot: a batch | `Ctrl+Shift+A` with more than one shot in the batch | `{count}`, `{dir}`, `{entries}` |
+| Quick shot: one shot | Copy for agent on a quick shot | `{path}`, `{note}` |
+| Quick shot: a batch | Copy batch for agent | `{count}`, `{dir}`, `{entries}` |
 | Bundle: Fix issues | Copy agent prompt with the purpose Fix issues | `{location}`, `{root}`, `{name}` |
 | Bundle: Write process doc | Copy agent prompt with the purpose Write process doc | `{location}`, `{deliverable}`, `{root}`, `{name}` |
 | Process doc as Markdown | Becomes `{deliverable}` for a Markdown document | |

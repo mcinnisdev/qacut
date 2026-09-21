@@ -10,7 +10,7 @@
 use crate::model::{Moment, Shot, ShotKind};
 use crate::{
     base_dir, brand_dir, do_finish, do_new_bundle, do_open_bundle, ensure_session, open_overlay, overlay,
-    quick_batch_dir, quick_next, shot_id, Inner, Shared,
+    shot_id, Inner, Shared,
 };
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -37,6 +37,8 @@ enum Req {
     /// A quick shot: the PNG goes into the batch (a fresh one with
     /// `new_batch`) and the quick editor opens on it.
     Quick { png: String, marks: Option<String>, new_batch: Option<bool> },
+    /// Throw away the open quick batch, folder and all.
+    QuickBatchDiscard,
     Prompts { select: Option<String> },
     /// Run JavaScript in a window: fill a field, open a panel, tick a box.
     Eval { label: String, js: String },
@@ -254,15 +256,20 @@ fn run(app: &AppHandle, req: Req) -> Result<String, String> {
                 if new_batch.unwrap_or(false) {
                     inner.quick_batch = None;
                 }
-                let dir = quick_batch_dir(app, &mut inner);
-                std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-                let abs = dir.join(format!("{:02}.png", quick_next(&dir)));
+                let abs = crate::quick_single_path(app);
                 place(&png, &abs, marks.as_deref())?;
                 inner.quick_pending = Some(abs.clone());
                 abs
             };
             overlay::open_quick_editor(app, &abs.to_string_lossy(), w, h).map_err(|e| e.to_string())?;
             Ok(abs.to_string_lossy().to_string())
+        }
+        Req::QuickBatchDiscard => {
+            let mut inner = lock(app);
+            if let Some(d) = inner.quick_batch.take() {
+                let _ = std::fs::remove_dir_all(&d);
+            }
+            Ok("discarded".into())
         }
         Req::Prompts { select } => {
             overlay::open_prompts(app, select.as_deref()).map_err(|e| e.to_string())?;

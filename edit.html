@@ -15,6 +15,7 @@
           <button class="tool" data-tool="rect" title="Highlight (H)">Highlight</button>
           <button class="tool" data-tool="blur" title="Blur (B)">Blur</button>
           <button class="tool" data-tool="step" title="Step counter (S)">Step</button>
+          <button class="tool" data-tool="text" title="Text label (T)">Text</button>
         </div>
         <span class="spacer" data-tauri-drag-region></span>
         <button class="quiet" id="undo" title="Undo (Ctrl+Z)">Undo</button>
@@ -25,31 +26,35 @@
       <div class="edit-main">
         <div class="edit-body" id="body">
           <canvas id="canvas"></canvas>
+          <input class="text-entry" id="text-entry" hidden placeholder="Type, then Enter" aria-label="Text label" />
         </div>
         <!-- Review mode: the shot's place in the bundle, its note, and a way
              to the next one, so a whole auto-captured run can be cleaned up
              without going back to the bundle window. -->
-        <!-- Quick shot: Enter copies the picture with the note under it for
-             a person and keeps the batch open; Ctrl+Shift+A hands the path
-             and note (the whole batch, if more than one) to an agent. -->
+        <!-- Quick shot: one shot, one decision. Copy (picture, note under
+             it), Copy for agent (path and note as text), Add to batch (kept
+             for a hand-off with more shots) or Discard. -->
         <aside class="edit-side" id="quick-side" hidden>
           <div class="edit-side-head">
             <span class="edit-count" id="quick-count">Quick shot</span>
             <span class="edit-hint" id="quick-hint"></span>
           </div>
-          <select class="field" id="quick-prompt" aria-label="Prompt to wrap the hand-off in" hidden></select>
-          <textarea class="field" id="quick-note" placeholder="What should they know, or do?" aria-label="Note"></textarea>
+          <select class="field" id="quick-prompt" aria-label="Prompt for the agent hand-off" hidden></select>
+          <textarea class="field" id="quick-note" placeholder="Note, if you want one. It is printed under the picture, or goes beside the path for an agent." aria-label="Note"></textarea>
           <div class="edit-side-actions">
-            <button class="btn primary" id="quick-save" title="Copy the picture with your note printed under it, for a chat, an email or a ticket (Enter)">Copy for a person</button>
-            <button class="btn" id="quick-copy-image" title="Copy the marked-up picture alone, no note (Ctrl+Shift+C)">Copy image</button>
+            <button class="btn primary" id="quick-copy" title="Copy the picture, with the note printed under it if you wrote one (Ctrl+C)">Copy</button>
+            <button class="btn" id="quick-agent" title="Copy the path and note as text, for an agent (Ctrl+Shift+A)">Copy for agent</button>
           </div>
           <div class="edit-side-actions">
-            <button class="btn" id="quick-finish" title="Copy the path and note for an agent; with more than one shot in the batch, all of them, and the batch closes (Ctrl+Shift+A)">Hand off to agent</button>
+            <button class="btn" id="quick-batch" title="Keep this shot in the batch, to hand several to an agent at once (Ctrl+B)">Add to batch</button>
+          </div>
+          <div class="edit-batch-row" id="quick-batch-row" hidden>
+            <span id="quick-batch-label"></span>
+            <button class="linkish" id="quick-show-batch">Show batch</button>
           </div>
           <div class="edit-side-nav">
-            <button class="linkish" id="quick-new-batch" hidden title="Move this shot into a fresh batch">New batch</button>
             <span class="spacer"></span>
-            <button class="linkish danger" id="quick-discard" title="Delete this shot">Discard shot</button>
+            <button class="linkish danger" id="quick-discard" title="Delete this shot (Esc)">Discard</button>
           </div>
           <span class="edit-status" id="quick-status"></span>
         </aside>
@@ -63,13 +68,26 @@
           <div class="edit-side-nav">
             <button class="btn" id="prev" title="Previous shot (←)">&larr; Prev</button>
             <button class="btn" id="next" title="Next shot (→)">Next &rarr;</button>
+            <button class="btn" id="review-copy" title="Copy the picture with the note under it (Ctrl+C)">Copy</button>
             <span class="spacer"></span>
             <button class="linkish danger" id="delete-shot" title="Remove this shot from the bundle">Delete shot</button>
           </div>
         </aside>
       </div>
+      <!-- The quick batch: every shot waiting for a hand-off, to open or drop. -->
+      <div class="edit-strip" id="quick-strip" hidden>
+        <div class="edit-strip-head">
+          <span class="edit-count" id="quick-strip-count"></span>
+          <span class="edit-hint">Click a shot to open it; &times; drops it.</span>
+          <span class="spacer"></span>
+          <button class="btn primary" id="quick-strip-copy" title="Copy every shot's path and note for an agent, then close the batch">Copy batch for agent</button>
+          <button class="linkish danger" id="quick-strip-discard" title="Delete every shot in the batch">Discard batch</button>
+          <button class="linkish" id="quick-strip-hide">Hide</button>
+        </div>
+        <div class="edit-strip-list" id="quick-strip-list"></div>
+      </div>
       <div class="edit-foot">
-        <span><kbd>M</kbd> move <kbd>A</kbd> arrow <kbd>H</kbd> highlight <kbd>B</kbd> blur <kbd>S</kbd> step</span>
+        <span><kbd>M</kbd> move <kbd>A</kbd> arrow <kbd>H</kbd> highlight <kbd>B</kbd> blur <kbd>S</kbd> step <kbd>T</kbd> text</span>
         <span id="foot-keys"><kbd>←↑↓→</kbd> nudge <kbd>Del</kbd> remove <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo <kbd>Enter</kbd> save <kbd>Esc</kbd> cancel</span>
       </div>
     </div>

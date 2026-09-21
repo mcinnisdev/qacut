@@ -1,6 +1,6 @@
 ---
 title: Send screenshots and notes to an AI agent
-description: "Spot a UI bug while an AI agent is working, screenshot it, type a note and press Ctrl+Shift+A. The agent gets a path it can open and an instruction to act on."
+description: "Spot a UI bug while an AI agent is working, screenshot it, type a note and press Copy for agent. The agent gets a path it can open and an instruction to act on."
 ---
 
 # Send screenshots and notes to an AI agent
@@ -13,18 +13,18 @@ Describing a layout bug in words is slow, and the agent still guesses. A screens
 
 1. Press `Ctrl+Shift+1` and drag the button that is wrong.
 2. Type what is wrong in the note box beside the shot.
-3. Press `Ctrl+Shift+A`. The path and the note are on the clipboard.
+3. Press **Copy for agent**, or `Ctrl+Shift+A`. The path and the note are on the clipboard.
 4. Paste into your agent and carry on.
 
-Three small things on the same page? Press `Enter` on each note and keep going; the window header counts the batch. On the last one, `Ctrl+Shift+A` copies all of them with their notes, so the agent gets one message with three screenshots and three instructions.
+Three small things on the same page? Press **Add to batch** (`Ctrl+B`) on each and keep going; the window counts the batch and **Show batch** lists it. On the last one, **Copy batch for agent** copies all of them with their notes, so the agent gets one message with three screenshots and three instructions.
 
 <figure class="qc-shot">
-<img src="/media/use-cases/agent-feedback-loops-1.png" alt="Step 2: the note typed. Ctrl+Shift+A puts the path and this note on the clipboard." loading="lazy" />
-<figcaption>Step 2: the note typed. Ctrl+Shift+A puts the path and this note on the clipboard.</figcaption>
+<img src="/media/use-cases/agent-feedback-loops-1.png" alt="Step 2: the note typed. Copy for agent puts the path and this note on the clipboard." loading="lazy" />
+<figcaption>Step 2: the note typed. Copy for agent puts the path and this note on the clipboard.</figcaption>
 </figure>
 <figure class="qc-shot">
-<img src="/media/use-cases/agent-feedback-loops-3.png" alt="Three shots in one batch; the header counts them." loading="lazy" />
-<figcaption>Three shots in one batch; the header counts them.</figcaption>
+<img src="/media/use-cases/agent-feedback-loops-3.png" alt="The batch strip: three shots waiting for one hand-off." loading="lazy" />
+<figcaption>The batch strip: three shots waiting for one hand-off.</figcaption>
 </figure>
 
 ## What you get
@@ -59,7 +59,7 @@ On disk, each PNG has its note in a small markdown file beside it, and `notes.md
 - Batches close on hand-off. Your next quick shot starts a fresh folder, so an agent you talk to later never sees the shots you already had fixed. **New batch** in the note box moves the shot you are noting into a fresh folder without closing the old one.
 - If you always want the same instruction around the shots, save it once in the [Prompt library](/docs/prompts) as a quick-shot prompt, with `{shots}` where the paths and notes go. A **Hand off as** picker then appears above the note.
 - The single-shot and batch texts are templates too. `{path}`, `{note}`, `{count}`, `{dir}` and `{entries}` are filled in; edit them under **Prompt library…** in the tray.
-- **Finish quick batch and copy paths** is a tray item with no default hotkey; bind one under **Keyboard shortcuts…** if you finish batches from outside the note box.
+- **Copy quick batch for agent** is a tray item with no default hotkey; bind one under **Keyboard shortcuts…** if you hand batches off from outside the window.
 
 ## Related
 

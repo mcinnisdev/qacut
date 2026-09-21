@@ -11,7 +11,7 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { Session, Shot } from "./types";
 
-type Tool = "move" | "arrow" | "rect" | "blur" | "step";
+type Tool = "move" | "arrow" | "rect" | "blur" | "step" | "text";
 
 /// Closes this window; if the graceful close fails, destroys it.
 async function closeSelf() {
@@ -28,6 +28,7 @@ type Mark =
   | { kind: "rect"; x: number; y: number; w: number; h: number }
   | { kind: "blur"; x: number; y: number; w: number; h: number }
   | { kind: "step"; x: number; y: number; n: number }
+  | { kind: "text"; x: number; y: number; text: string }
   | { kind: "click"; x: number; y: number };
 
 interface Markup {
@@ -76,7 +77,7 @@ title.textContent = label;
 function setTool(t: Tool) {
   tool = t;
   for (const b of toolButtons) b.classList.toggle("on", b.dataset.tool === t);
-  canvas.style.cursor = t === "move" ? "default" : t === "step" ? "pointer" : "crosshair";
+  canvas.style.cursor = t === "move" ? "default" : t === "step" || t === "text" ? "text" : "crosshair";
   if (t !== "move") {
     selected = null;
     render();
@@ -150,6 +151,17 @@ function drawMark(m: Mark) {
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(String(m.n), m.x, m.y + r * 0.05);
+  } else if (m.kind === "text") {
+    // A label: white on the accent, rounded, sized with the image.
+    const { fs, pad, w, h } = textBox(m);
+    ctx.beginPath();
+    ctx.roundRect(m.x, m.y, w, h, u * 1.5);
+    ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.font = textFont(fs);
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillText(m.text, m.x + pad, m.y + h / 2 + fs * 0.04);
   } else {
     // The recorder's click ring: amber, filled, like the GIF shows it.
     const r = clickRadius();
@@ -168,6 +180,22 @@ function drawMark(m: Mark) {
   ctx.restore();
 }
 
+function textFont(fs: number) {
+  return `600 ${fs}px ${getComputedStyle(document.body).fontFamily}`;
+}
+
+/// A text label's box: font size, padding and outer size.
+function textBox(m: { text: string }) {
+  const u = unit();
+  const fs = Math.round(u * 3.6);
+  const pad = u * 1.5;
+  ctx.save();
+  ctx.font = textFont(fs);
+  const tw = ctx.measureText(m.text).width;
+  ctx.restore();
+  return { fs, pad, w: tw + pad * 2, h: fs + pad * 2 };
+}
+
 function bounds(m: Mark) {
   const u = unit();
   if (m.kind === "arrow") {
@@ -179,6 +207,10 @@ function bounds(m: Mark) {
     };
   }
   if (m.kind === "rect" || m.kind === "blur") return { x: m.x, y: m.y, w: m.w, h: m.h };
+  if (m.kind === "text") {
+    const b = textBox(m);
+    return { x: m.x, y: m.y, w: b.w, h: b.h };
+  }
   const r = m.kind === "click" ? clickRadius() : u * 4.5;
   return { x: m.x - r, y: m.y - r, w: r * 2, h: r * 2 };
 }
@@ -272,8 +304,51 @@ canvas.addEventListener("mousedown", (e) => {
     render();
     return;
   }
+  if (tool === "text") {
+    beginText(p, e);
+    return;
+  }
   anchor = p;
 });
+
+// A text label is typed in a small box over the spot that was clicked,
+// then drawn onto the shot on Enter.
+const textEntry = document.getElementById("text-entry") as HTMLInputElement;
+let textAt: { x: number; y: number } | null = null;
+
+function beginText(p: { x: number; y: number }, e: MouseEvent) {
+  const body = bodyEl.getBoundingClientRect();
+  textAt = p;
+  textEntry.value = "";
+  textEntry.style.left = `${e.clientX - body.left}px`;
+  textEntry.style.top = `${e.clientY - body.top}px`;
+  textEntry.hidden = false;
+  textEntry.focus();
+}
+
+function endText(commit: boolean) {
+  if (textEntry.hidden) return;
+  const text = textEntry.value.trim();
+  if (commit && textAt && text) {
+    marks.push({ kind: "text", x: textAt.x, y: textAt.y, text });
+    touch();
+  }
+  textEntry.hidden = true;
+  textAt = null;
+  render();
+}
+
+textEntry.addEventListener("keydown", (e) => {
+  e.stopPropagation();
+  if (e.key === "Enter") {
+    e.preventDefault();
+    endText(true);
+  } else if (e.key === "Escape") {
+    e.preventDefault();
+    endText(false);
+  }
+});
+textEntry.addEventListener("blur", () => endText(true));
 
 canvas.addEventListener("mousemove", (e) => {
   const p = pos(e);
@@ -432,7 +507,7 @@ async function writeMarks(): Promise<boolean> {
 async function save() {
   if (done) return;
   if (quick) {
-    void quickSave(false);
+    void quickAddToBatch();
     return;
   }
   done = true;
@@ -447,9 +522,9 @@ async function save() {
 async function cancel() {
   if (done) return;
   if (quick) {
-    // Esc on a quick shot keeps it, like the note box did, with the marks
-    // made so far and no note.
-    void quickSave(false);
+    // Esc discards a fresh shot; on a batch shot it saves and closes.
+    if (inBatch) void quickAddToBatch();
+    else void quickDiscard();
     return;
   }
   done = true;
@@ -463,13 +538,35 @@ const quickSide = document.getElementById("quick-side") as HTMLElement;
 const quickCount = document.getElementById("quick-count") as HTMLSpanElement;
 const quickHint = document.getElementById("quick-hint") as HTMLSpanElement;
 const quickNote = document.getElementById("quick-note") as HTMLTextAreaElement;
-const quickSaveBtn = document.getElementById("quick-save") as HTMLButtonElement;
-const quickCopyBtn = document.getElementById("quick-copy-image") as HTMLButtonElement;
-const quickFinishBtn = document.getElementById("quick-finish") as HTMLButtonElement;
-const quickNewBtn = document.getElementById("quick-new-batch") as HTMLButtonElement;
+const quickCopyBtn = document.getElementById("quick-copy") as HTMLButtonElement;
+const quickAgentBtn = document.getElementById("quick-agent") as HTMLButtonElement;
+const quickBatchBtn = document.getElementById("quick-batch") as HTMLButtonElement;
 const quickDiscardBtn = document.getElementById("quick-discard") as HTMLButtonElement;
+const quickBatchRow = document.getElementById("quick-batch-row") as HTMLDivElement;
+const quickBatchLabel = document.getElementById("quick-batch-label") as HTMLSpanElement;
+const quickShowBtn = document.getElementById("quick-show-batch") as HTMLButtonElement;
 const quickStatus = document.getElementById("quick-status") as HTMLSpanElement;
 const quickPrompt = document.getElementById("quick-prompt") as HTMLSelectElement;
+const strip = document.getElementById("quick-strip") as HTMLDivElement;
+const stripList = document.getElementById("quick-strip-list") as HTMLDivElement;
+const stripCount = document.getElementById("quick-strip-count") as HTMLSpanElement;
+const stripCopyBtn = document.getElementById("quick-strip-copy") as HTMLButtonElement;
+const stripDiscardBtn = document.getElementById("quick-strip-discard") as HTMLButtonElement;
+const stripHideBtn = document.getElementById("quick-strip-hide") as HTMLButtonElement;
+
+// A shot opened from the batch strip, rather than one fresh from the screen.
+const inBatch = params.get("batch") === "1";
+
+interface QuickShotInfo {
+  path: string;
+  name: string;
+  note: string;
+}
+interface QuickBatchInfo {
+  dir: string | null;
+  shots: QuickShotInfo[];
+}
+let batch: QuickBatchInfo = { dir: null, shots: [] };
 
 /// The user's saved quick-shot prompts, if any, as a picker above the note.
 async function loadQuickPrompts() {
@@ -480,12 +577,12 @@ async function loadQuickPrompts() {
     quickPrompt.replaceChildren();
     const none = document.createElement("option");
     none.value = "";
-    none.textContent = "Agent hand-off: path and note";
+    none.textContent = "For agent: path and note";
     quickPrompt.append(none);
     for (const p of mine) {
       const o = document.createElement("option");
       o.value = p.id;
-      o.textContent = `Agent hand-off: ${p.name || "Untitled prompt"}`;
+      o.textContent = `For agent: ${p.name || "Untitled prompt"}`;
       quickPrompt.append(o);
     }
     quickPrompt.hidden = false;
@@ -503,17 +600,54 @@ function keyLabel(spec: string) {
 }
 
 let quickKey = "Ctrl+Shift+1";
-let quickBatch = 1;
 
-function showQuickBatch(n: number) {
-  quickBatch = n;
-  quickCount.textContent = n > 1 ? `Quick shot ${String(n).padStart(2, "0")} in this batch` : "Quick shot";
-  quickNewBtn.hidden = n < 2;
-  quickFinishBtn.textContent = n > 1 ? `Hand off to agent (${n})` : "Hand off to agent";
-  quickHint.textContent =
-    n > 1
-      ? `Enter copies this picture with its note under it, for a person, and keeps the batch open. Ctrl+Shift+A hands all ${n} shots with their notes to an agent and closes the batch. Copy image is the picture alone.`
-      : `Enter copies the picture with your note under it, for a chat, an email or a ticket. Ctrl+Shift+A hands the path and note to an agent instead. Take more with ${quickKey}; they join the batch. Copy image is the picture alone.`;
+function showBatch(b: QuickBatchInfo) {
+  batch = b;
+  const n = b.shots.length;
+  quickBatchRow.hidden = n === 0;
+  quickBatchLabel.textContent = n === 1 ? "1 shot in the batch" : `${n} shots in the batch`;
+  quickBatchBtn.textContent = inBatch ? "Save to batch" : "Add to batch";
+  quickDiscardBtn.textContent = inBatch ? "Remove from batch" : "Discard";
+  quickCount.textContent = inBatch ? `Batch shot ${path.split(/[\\/]/).pop() ?? ""}` : "Quick shot";
+  quickHint.textContent = inBatch
+    ? "A shot from the batch. Save to batch keeps your changes; Copy and Copy for agent work on this one shot."
+    : n === 0
+      ? `Copy puts the picture on the clipboard, with your note printed under it if you wrote one. Copy for agent puts the path and note as text. Add to batch keeps it, to hand several shots to an agent at once. Take another with ${quickKey}.`
+      : `Copy and Copy for agent send this one shot. Add to batch puts it with the ${n} already waiting; Copy batch for agent in the strip sends them all.`;
+  stripCount.textContent = n === 1 ? "Batch: 1 shot" : `Batch: ${n} shots`;
+  renderStrip();
+  if (n === 0) strip.hidden = true;
+}
+
+function renderStrip() {
+  stripList.replaceChildren();
+  for (const s of batch.shots) {
+    const item = document.createElement("div");
+    item.className = "strip-item";
+    if (s.path === path) item.classList.add("on");
+    const im = document.createElement("img");
+    im.src = `${convertFileSrc(s.path)}?t=${Date.now()}`;
+    im.alt = "";
+    const cap = document.createElement("span");
+    cap.className = "cap";
+    cap.textContent = s.note || s.name;
+    cap.title = s.note || s.name;
+    const x = document.createElement("button");
+    x.className = "x";
+    x.textContent = "\u00d7";
+    x.title = "Drop this shot from the batch";
+    x.addEventListener("click", (e) => {
+      e.stopPropagation();
+      void stripRemove(s);
+    });
+    item.append(im, cap, x);
+    item.addEventListener("click", () => void openBatchShot(s));
+    stripList.append(item);
+  }
+}
+
+async function refreshBatch() {
+  showBatch(await invoke<QuickBatchInfo>("quick_batch"));
 }
 
 function status(text: string) {
@@ -523,12 +657,8 @@ function status(text: string) {
   }, 2500);
 }
 
-/// Saves the note and this shot's marks, copies, and closes. For a person
-/// (`agent` false) the clipboard gets the picture with the note under it
-/// and the batch stays open. For an agent it gets the path and note as
-/// text, the whole batch when there is more than one shot, and the batch
-/// closes.
-async function quickSave(agent: boolean) {
+/// Copy: the picture, with the note printed under it when there is one.
+async function quickCopy() {
   if (done) return;
   done = true;
   try {
@@ -536,55 +666,142 @@ async function quickSave(agent: boolean) {
       done = false;
       return;
     }
-    const pngBase64 = agent ? null : await captionedPng(quickNote.value);
-    const all = agent && quickBatch > 1;
-    await invoke("save_quick", { note: quickNote.value, all, prompt: quickPrompt.value || null, pngBase64 });
+    const pngBase64 = await captionedPng(quickNote.value);
+    await invoke("quick_copy", { path, note: quickNote.value, pngBase64 });
   } catch (err) {
     done = false;
-    report("quick save", err);
+    report("copy", err);
     return;
   }
   await closeSelf();
 }
 
-async function quickCopyImage() {
-  if (!(await writeMarks())) return;
+/// Copy for agent: the path and note as text.
+async function quickCopyAgent() {
+  if (done) return;
+  done = true;
   try {
-    await invoke("copy_image", { path });
-    status("Image copied");
+    if (!(await writeMarks())) {
+      done = false;
+      return;
+    }
+    await invoke("quick_copy_agent", { path, note: quickNote.value, prompt: quickPrompt.value || null });
   } catch (err) {
-    status(String(err));
+    done = false;
+    report("copy for agent", err);
+    return;
   }
+  await closeSelf();
+}
+
+/// Add to batch (or, on a batch shot, save): the shot and its note join
+/// the open batch, and the window closes.
+async function quickAddToBatch() {
+  if (done) return;
+  done = true;
+  try {
+    if (!(await writeMarks())) {
+      done = false;
+      return;
+    }
+    await invoke("quick_add_to_batch", { path, note: quickNote.value });
+  } catch (err) {
+    done = false;
+    report("add to batch", err);
+    return;
+  }
+  await closeSelf();
 }
 
 async function quickDiscard() {
   // Discard always works, whatever state a failed save left behind.
   done = true;
   try {
-    await invoke("discard_quick");
+    if (inBatch) await invoke("quick_batch_remove", { path });
+    else await invoke("discard_quick", { path });
   } catch (err) {
     report("discard", err);
   }
   await closeSelf();
 }
 
-async function quickNewBatch() {
+/// Opens a batch shot in this window. A fresh shot on screen joins the
+/// batch first, so nothing is lost on the way.
+async function openBatchShot(s: QuickShotInfo) {
+  if (s.path === path) return;
   try {
     if (!(await writeMarks())) return;
-    const r = await invoke<{ count: number; path: string }>("quick_new_batch");
-    path = r.path;
-    showQuickBatch(r.count);
-    quickNote.focus();
+    await invoke("quick_add_to_batch", { path, note: quickNote.value });
+  } catch (err) {
+    status(String(err));
+    return;
+  }
+  done = true;
+  location.href = `edit.html?quick=1&batch=1&path=${encodeURIComponent(s.path)}`;
+}
+
+async function stripRemove(s: QuickShotInfo) {
+  try {
+    const b = await invoke<QuickBatchInfo>("quick_batch_remove", { path: s.path });
+    if (s.path === path) {
+      done = true;
+      await closeSelf();
+      return;
+    }
+    showBatch(b);
+    if (b.shots.length) strip.hidden = false;
   } catch (err) {
     status(String(err));
   }
 }
 
-quickSaveBtn.addEventListener("click", () => void quickSave(false));
-quickCopyBtn.addEventListener("click", () => void quickCopyImage());
-quickFinishBtn.addEventListener("click", () => void quickSave(true));
-quickNewBtn.addEventListener("click", () => void quickNewBatch());
+async function stripCopyAgent() {
+  try {
+    if (inBatch && !(await writeMarks())) return;
+    if (inBatch) await invoke("quick_add_to_batch", { path, note: quickNote.value });
+    await invoke("quick_batch_copy_agent", { prompt: quickPrompt.value || null });
+  } catch (err) {
+    status(String(err));
+    return;
+  }
+  if (inBatch) {
+    done = true;
+    await closeSelf();
+    return;
+  }
+  status("Batch copied for agent");
+  await refreshBatch();
+}
+
+async function stripDiscard() {
+  try {
+    await invoke("quick_batch_discard");
+  } catch (err) {
+    status(String(err));
+    return;
+  }
+  if (inBatch) {
+    done = true;
+    await closeSelf();
+    return;
+  }
+  await refreshBatch();
+}
+
+quickCopyBtn.addEventListener("click", () => void quickCopy());
+quickAgentBtn.addEventListener("click", () => void quickCopyAgent());
+quickBatchBtn.addEventListener("click", () => void quickAddToBatch());
 quickDiscardBtn.addEventListener("click", () => void quickDiscard());
+quickShowBtn.addEventListener("click", () => {
+  strip.hidden = !strip.hidden;
+  quickShowBtn.textContent = strip.hidden ? "Show batch" : "Hide batch";
+});
+stripHideBtn.addEventListener("click", () => {
+  strip.hidden = true;
+  quickShowBtn.textContent = "Show batch";
+});
+stripCopyBtn.addEventListener("click", () => void stripCopyAgent());
+stripDiscardBtn.addEventListener("click", () => void stripDiscard());
 
 function removeSelected() {
   if (selected === null) return;
@@ -696,6 +913,22 @@ async function deleteCurrent() {
   await showCurrent();
 }
 
+/// The shot with its note printed under it, for a chat or an email.
+async function reviewCopy() {
+  try {
+    if (!(await writeMarks())) return;
+    const pngBase64 = await captionedPng(shotNote.value);
+    await invoke("copy_png", { pngBase64 });
+    title.textContent = `${label}: copied`;
+    window.setTimeout(() => {
+      if (title.textContent === `${label}: copied`) title.textContent = label;
+    }, 2000);
+  } catch (err) {
+    report("copy", err);
+  }
+}
+
+(document.getElementById("review-copy") as HTMLButtonElement).addEventListener("click", () => void reviewCopy());
 prevBtn.addEventListener("click", () => void go(-1));
 nextBtn.addEventListener("click", () => void go(1));
 deleteBtn.addEventListener("click", () => void deleteCurrent());
@@ -736,20 +969,43 @@ window.addEventListener("keydown", (e) => {
   // Typing in the side panel: leave the keys to the field, except the
   // ones that leave it.
   const inField = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
-  if (quick && (e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "c") {
-    e.preventDefault();
-    void quickCopyImage();
-    return;
+  const ctrl = e.ctrlKey || e.metaKey;
+  const key = e.key.toLowerCase();
+  // Selected text in a field still copies as text; otherwise Ctrl+C is
+  // the shot.
+  const textSelected =
+    inField && (e.target as HTMLInputElement | HTMLTextAreaElement).selectionStart !== (e.target as HTMLInputElement | HTMLTextAreaElement).selectionEnd;
+  if (quick) {
+    if (ctrl && e.shiftKey && key === "a") {
+      // The agent chord: the A says so. Everything else goes to a person.
+      e.preventDefault();
+      void quickCopyAgent();
+      return;
+    }
+    if (ctrl && !e.shiftKey && key === "c" && !textSelected) {
+      e.preventDefault();
+      void quickCopy();
+      return;
+    }
+    if (ctrl && key === "b") {
+      e.preventDefault();
+      void quickAddToBatch();
+      return;
+    }
+    if (e.key === "Escape") {
+      e.preventDefault();
+      if (selected !== null && !inField) {
+        selected = null;
+        render();
+        return;
+      }
+      void cancel();
+      return;
+    }
   }
-  if (quick && (e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "a") {
-    // The agent chord: the A says so. Everything else goes to a person.
+  if (review && ctrl && !e.shiftKey && key === "c" && !textSelected) {
     e.preventDefault();
-    void quickSave(true);
-    return;
-  }
-  if (quick && e.key === "Enter" && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
-    e.preventDefault();
-    void quickSave(false);
+    void reviewCopy();
     return;
   }
   if (inField) {
@@ -799,7 +1055,7 @@ window.addEventListener("keydown", (e) => {
       return;
     }
     void cancel();
-  } else if (e.key === "Enter" || (e.ctrlKey && e.key.toLowerCase() === "s")) {
+  } else if ((e.key === "Enter" && !quick) || (e.ctrlKey && e.key.toLowerCase() === "s")) {
     e.preventDefault();
     void save();
   } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
@@ -815,6 +1071,7 @@ window.addEventListener("keydown", (e) => {
     if (k === "h") setTool("rect");
     if (k === "b") setTool("blur");
     if (k === "s") setTool("step");
+    if (k === "t") setTool("text");
   }
 });
 
@@ -872,15 +1129,21 @@ async function boot() {
     title.textContent = "Quick shot";
     (document.getElementById("save") as HTMLButtonElement).hidden = true;
     (document.getElementById("cancel") as HTMLButtonElement).hidden = true;
-    footKeys.innerHTML =
-      "<kbd>Enter</kbd> copy for a person <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd> hand off to agent <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd> copy image <kbd>Esc</kbd> keep, no note";
+    footKeys.innerHTML = inBatch
+      ? "<kbd>Ctrl</kbd>+<kbd>C</kbd> copy <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd> copy for agent <kbd>Ctrl</kbd>+<kbd>B</kbd> save to batch <kbd>Esc</kbd> save and close"
+      : "<kbd>Ctrl</kbd>+<kbd>C</kbd> copy <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd> copy for agent <kbd>Ctrl</kbd>+<kbd>B</kbd> add to batch <kbd>Esc</kbd> discard";
     try {
       const hk = await invoke<{ quick: string }>("get_hotkeys");
       if (hk.quick) quickKey = keyLabel(hk.quick);
     } catch {
       // The default label is fine.
     }
-    showQuickBatch(await invoke<number>("quick_count"));
+    if (inBatch) quickNote.value = await invoke<string>("quick_note", { path });
+    await refreshBatch();
+    if (inBatch && batch.shots.length) {
+      strip.hidden = false;
+      quickShowBtn.textContent = "Hide batch";
+    }
     await loadQuickPrompts();
     void listen("prompts-changed", () => void loadQuickPrompts());
     await loadImage();
@@ -890,7 +1153,7 @@ async function boot() {
   if (review) {
     side.hidden = false;
     footKeys.innerHTML =
-      "<kbd>←</kbd><kbd>→</kbd> prev / next shot <kbd>Del</kbd> remove mark <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo <kbd>Ctrl</kbd>+<kbd>S</kbd> save <kbd>Esc</kbd> close";
+      "<kbd>←</kbd><kbd>→</kbd> prev / next shot <kbd>Del</kbd> remove mark <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo <kbd>Ctrl</kbd>+<kbd>C</kbd> copy <kbd>Ctrl</kbd>+<kbd>S</kbd> save <kbd>Esc</kbd> close";
     await loadEntries();
     const i = entries.findIndex((e) => e.group === Number(reviewGroup) && e.shot.id === reviewShot);
     at = Math.max(0, i);

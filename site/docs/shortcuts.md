@@ -29,10 +29,19 @@ All of these can be changed: **Keyboard shortcutsâ€¦** in the tray, or **Help â†
 
 | Key | Does |
 | --- | --- |
-| `Enter` | Save. In a quick shot: copy the picture with the note under it, for a person |
+| `Enter` | Save |
 | `Shift+Enter` | New line |
-| `Ctrl+Shift+A` | Quick shot: hand off to an agent, the path and note, or every shot in the batch |
-| `Ctrl+Shift+C` | Quick shot: copy the picture alone |
+| `Esc` | Keep the screenshot with no note; cancel a group wrap-up |
+
+## In the quick shot window
+
+| Key | Does |
+| --- | --- |
+| `Ctrl+C` | Copy the picture, with the note printed under it if you wrote one |
+| `Ctrl+Shift+A` | Copy for agent: the path and note as text |
+| `Ctrl+B` | Add to batch, to hand several shots to an agent at once |
+| `Esc` | Discard the shot |
+| `M` `A` `H` `B` `S` `T` | Move, arrow, highlight, blur, step counter, text label |
 | `Esc` | Keep the screenshot with no note; cancel a group wrap-up |
 
 ## In the capture overlay

@@ -39,12 +39,12 @@ interface Hotkeys {
 
 const HOTKEY_LABELS: [keyof Hotkeys, string][] = [
   ["quick", "Quick shot"],
-  ["quick_finish", "Finish quick batch and copy paths"],
+  ["quick_finish", "Copy quick batch for agent"],
   ["capture", "Capture"],
   ["record", "Auto-capture start / stop"],
   ["group", "New group"],
   ["peek", "View / edit bundle"],
-  ["finish", "Finish and copy path"],
+  ["finish", "Finish bundle and copy for agent"],
   ["studio", "Studio: record start / stop"],
   ["zoom", "Studio: zoom start / end (only active while recording)"],
 ];
@@ -114,12 +114,11 @@ function windowKeys(): [string, [string, string][]][] {
     [
       "Quick shot window",
       [
-        ["Enter", "copy for a person: the picture with the note under it; the batch stays open"],
-        ["Ctrl+Shift+A", "hand off to an agent: the path and note, or every shot in the batch, which then closes"],
-        ["Ctrl+Shift+C", "copy the marked-up image alone"],
-        ["Shift+Enter", "new line in the note"],
-        ["Esc", "keep the shot, no note"],
-        [keyLabel(hk.quick), "take another shot in the batch"],
+        ["Ctrl+C", "copy the picture, with the note printed under it if you wrote one"],
+        ["Ctrl+Shift+A", "copy for an agent: the path and note as text"],
+        ["Ctrl+B", "add to the batch, to hand several shots to an agent at once"],
+        ["Esc", "discard the shot"],
+        [keyLabel(hk.quick), "take another shot"],
       ],
     ],
     [
@@ -134,12 +133,13 @@ function windowKeys(): [string, [string, string][]][] {
     [
       "Review and markup",
       [
-        ["M A H B S", "move, arrow, highlight, blur, step counter"],
+        ["M A H B S T", "move, arrow, highlight, blur, step counter, text label"],
         ["← →", "previous / next shot (Ctrl+← → while typing)"],
         ["Arrow keys", "nudge the selected mark; Shift for ten"],
         ["Delete", "remove the selected mark"],
         ["Ctrl+Z", "undo"],
         ["Ctrl+S", "save"],
+        ["Ctrl+C", "copy the picture with the note under it"],
         ["Esc", "deselect, then close"],
       ],
     ],
@@ -792,7 +792,7 @@ const menus: Menu[] = [
       { label: "Open bundle…", run: showBundles },
       { label: "Rename bundle", run: () => bundleName.focus() },
       "-",
-      { label: "Finish and copy path", keys: keyLabel(hk.finish), run: () => run("path") },
+      { label: "Finish bundle and copy for agent", keys: keyLabel(hk.finish), run: () => run("path") },
       { label: "Open bundle folder", run: () => run("open") },
       "-",
       { label: "Close window", keys: "Esc", run: () => getCurrentWindow().close() },
@@ -802,7 +802,7 @@ const menus: Menu[] = [
     title: "Capture",
     items: () => [
       { label: "Quick shot", keys: keyLabel(hk.quick), run: () => call("start_quick") },
-      { label: "Finish quick batch and copy paths", keys: keyLabel(hk.quick_finish), run: () => call("quick_finish", undefined, "Quick batch copied") },
+      { label: "Copy quick batch for agent", keys: keyLabel(hk.quick_finish), run: () => call("quick_finish", undefined, "Quick batch copied") },
       "-",
       { label: "Capture", keys: keyLabel(hk.capture), run: () => call("start_capture") },
       { label: "Auto-capture start / stop", keys: keyLabel(hk.record), run: () => call("start_record") },

@@ -360,6 +360,21 @@ fn trigger_quick(app: &AppHandle) {
     open_overlay(app, "quick");
 }
 
+/// Where a fresh quick shot lands: flat under ~/QACut/Quick, named for the
+/// moment. Add to batch moves it into a batch folder.
+fn quick_single_path(app: &AppHandle) -> std::path::PathBuf {
+    let dir = base_dir(app).join("Quick");
+    let _ = std::fs::create_dir_all(&dir);
+    let stamp = chrono::Local::now().format("%Y-%m-%d_%H%M%S").to_string();
+    let mut p = dir.join(format!("{stamp}.png"));
+    let mut n = 2;
+    while p.exists() {
+        p = dir.join(format!("{stamp}-{n}.png"));
+        n += 1;
+    }
+    p
+}
+
 /// The current batch folder, starting one (named for the moment it began)
 /// if there is none.
 fn quick_batch_dir(app: &AppHandle, inner: &mut Inner) -> std::path::PathBuf {
@@ -760,12 +775,12 @@ fn build_tray_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     let head_docs = MenuItem::with_id(app, "h4", "QACut Bundles", false, None::<&str>)?;
     let quick_i = MenuItem::with_id(app, "quick", "Quick shot", true, acc(&hk.quick))?;
     let quick_finish_i =
-        MenuItem::with_id(app, "quick_finish", "Finish quick batch and copy paths", true, acc(&hk.quick_finish))?;
+        MenuItem::with_id(app, "quick_finish", "Copy quick batch for agent", true, acc(&hk.quick_finish))?;
     let capture_i = MenuItem::with_id(app, "capture", "Capture", true, acc(&hk.capture))?;
     let record_i = MenuItem::with_id(app, "record", "Auto-capture start / stop", true, acc(&hk.record))?;
     let group_i = MenuItem::with_id(app, "group", "New group", true, acc(&hk.group))?;
     let peek_i = MenuItem::with_id(app, "peek", "View / edit bundle", true, acc(&hk.peek))?;
-    let finish_i = MenuItem::with_id(app, "finish", "Finish and copy path", true, acc(&hk.finish))?;
+    let finish_i = MenuItem::with_id(app, "finish", "Finish bundle and copy for agent", true, acc(&hk.finish))?;
     let folder_i = MenuItem::with_id(app, "folder", "Open QACut folder", true, None::<&str>)?;
 
     let head_studio = MenuItem::with_id(app, "h2", "QACut Studio", false, None::<&str>)?;
@@ -2021,7 +2036,8 @@ fn note_anchor(frame: &Frame, _x: f64, _y: f64, _height: f64) -> (f64, f64) {
 }
 
 /// The overlay, in quick mode, hands over the region. The shot is written
-/// straight into today's Quick folder and the note box opens on it.
+/// under ~/QACut/Quick on its own and opens in the editor, where Copy, Copy
+/// for agent, Add to batch or Discard decides what becomes of it.
 #[tauri::command]
 async fn commit_quick(
     app: AppHandle,
@@ -2043,9 +2059,7 @@ async fn commit_quick(
             .map(|(f, i)| (f.clone(), i.clone()))
             .ok_or_else(|| "that monitor is no longer frozen".to_string())?;
 
-        let dir = quick_batch_dir(&app, &mut inner);
-        std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-        let abs = dir.join(format!("{:02}.png", quick_next(&dir)));
+        let abs = quick_single_path(&app);
         capture::crop_selection(&frame, &image, x, y, width, height, &abs).map_err(|e| e.to_string())?;
 
         inner.quick_pending = Some(abs.clone());
@@ -2085,17 +2099,11 @@ fn quick_batch_text(dir: &std::path::Path, prompts: &Prompts) -> String {
         .to_string()
 }
 
-/// Hotkey and tray: copy the open quick batch and close it. Does nothing
-/// when there is no batch, or while a shot is still waiting for its note.
+/// Hotkey and tray: copy the open quick batch for an agent and close it.
+/// Does nothing when there is no batch.
 fn trigger_quick_finish(app: &AppHandle) {
     let state: State<Shared> = app.state();
-    let dir = {
-        let mut inner = state.lock().unwrap();
-        if inner.quick_pending.is_some() {
-            return;
-        }
-        inner.quick_batch.take()
-    };
+    let dir = state.lock().unwrap().quick_batch.take();
     let Some(dir) = dir else {
         eprintln!("qacut: no quick batch to finish");
         return;
@@ -2121,128 +2129,263 @@ fn quick_entry(png: &std::path::Path, note: &str, prompts: &Prompts) -> String {
         .to_string()
 }
 
-/// Saves the note beside the quick shot, adds it to the day's notes.md, and
-/// puts the entry on the clipboard. With `all`, the clipboard gets every
-/// shot from today instead, so a few quick shots can be pasted at once.
-#[tauri::command]
-async fn save_quick(
-    app: AppHandle,
-    state: State<'_, Shared>,
-    note: String,
-    all: bool,
-    prompt: Option<String>,
-    png_base64: Option<String>,
-) -> Result<String, String> {
-    let path = state.lock().unwrap().quick_pending.take();
-    let Some(path) = path else {
-        overlay::close_note(&app);
-        return Ok(String::new());
-    };
-    let note = note.trim().to_string();
-    let dir = path.parent().map(|p| p.to_path_buf()).unwrap_or_default();
-    let file = path.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_default();
-    let stem = path.file_stem().map(|f| f.to_string_lossy().to_string()).unwrap_or_default();
-
-    std::fs::write(dir.join(format!("{stem}.md")), format!("{note}\n")).map_err(|e| e.to_string())?;
-
-    let index = dir.join("notes.md");
-    let mut body = std::fs::read_to_string(&index).unwrap_or_else(|_| {
-        format!("# Quick shots, {}\n", chrono::Local::now().format("%Y-%m-%d %H:%M"))
-    });
-    body.push_str(&format!(
-        "\n## {file} ({})\n\n{}\n",
-        chrono::Local::now().format("%H:%M"),
-        if note.is_empty() { "(no note)" } else { note.as_str() }
-    ));
-    std::fs::write(&index, body).map_err(|e| e.to_string())?;
-
-    let text = if all && png_base64.is_none() {
-        // Handing the batch off to an agent closes it: the next quick shot
-        // starts a fresh folder.
-        state.lock().unwrap().quick_batch = None;
-        quick_batch_text(&dir, &Prompts::load(&app))
-    } else {
-        quick_entry(&path, &note, &Prompts::load(&app))
-    };
-    // A saved quick prompt wraps the shots: `{shots}` where it says, or
-    // appended after it.
-    let text = match prompt.as_deref().and_then(|id| Prompts::load(&app).saved(id).cloned()) {
+/// A saved quick prompt wraps the hand-off text: `{shots}` where it says,
+/// or appended after it.
+fn wrap_quick(app: &AppHandle, text: String, prompt: Option<&str>) -> String {
+    match prompt.and_then(|id| Prompts::load(app).saved(id).cloned()) {
         Some(p) if p.template.contains("{shots}") => p.template.replace("{shots}", &text).trim().to_string(),
         Some(p) => format!("{}\n\n{}", p.template.trim(), text),
         None => text,
-    };
-    // With a picture this is a hand-off to a person: the image with the
-    // note printed under it, and nothing else, because a chat pastes text
-    // in preference to an image when both are there. Without one it is the
-    // agent hand-off: the path and note as text.
-    match png_base64 {
-        Some(b) => {
-            use base64::Engine as _;
-            let png = base64::engine::general_purpose::STANDARD.decode(b).map_err(|e| e.to_string())?;
-            set_clipboard("", Some(&png))?;
-            overlay::close_note(&app);
-            Ok(String::new())
-        }
-        None => {
-            set_clipboard(&text, None)?;
-            overlay::close_note(&app);
-            Ok(text)
-        }
     }
 }
 
-/// Throws away the quick shot the note box was attached to.
-#[tauri::command]
-async fn discard_quick(app: AppHandle, state: State<'_, Shared>) -> Result<(), String> {
-    let path = state.lock().unwrap().quick_pending.take();
-    if let Some(p) = path {
+fn quick_note_path(png: &std::path::Path) -> std::path::PathBuf {
+    png.with_extension("md")
+}
+
+fn read_quick_note(png: &std::path::Path) -> String {
+    std::fs::read_to_string(quick_note_path(png)).unwrap_or_default().trim().to_string()
+}
+
+/// The note beside a quick shot; an empty note means no file.
+fn write_quick_note(png: &std::path::Path, note: &str) -> Result<(), String> {
+    let p = quick_note_path(png);
+    if note.trim().is_empty() {
         let _ = std::fs::remove_file(p);
+        Ok(())
+    } else {
+        std::fs::write(p, format!("{}\n", note.trim())).map_err(|e| e.to_string())
+    }
+}
+
+/// The shot, its untouched original, its marks and its note.
+fn remove_quick_files(png: &std::path::Path) {
+    let [orig, marks, _] = model::sidecars(png);
+    for p in [png.to_path_buf(), orig, marks, quick_note_path(png)] {
+        let _ = std::fs::remove_file(p);
+    }
+}
+
+fn move_quick_files(from: &std::path::Path, to: &std::path::Path) -> Result<(), String> {
+    std::fs::rename(from, to).map_err(|e| e.to_string())?;
+    let [orig_a, marks_a, _] = model::sidecars(from);
+    let [orig_b, marks_b, _] = model::sidecars(to);
+    for (a, b) in [(orig_a, orig_b), (marks_a, marks_b), (quick_note_path(from), quick_note_path(to))] {
+        if a.exists() {
+            let _ = std::fs::rename(a, b);
+        }
+    }
+    Ok(())
+}
+
+/// notes.md: the batch's index, rebuilt from what the folder holds.
+fn write_batch_index(dir: &std::path::Path) {
+    let mut body = format!("# Quick batch {}\n", dir.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_default());
+    for p in quick_pngs(dir) {
+        let name = p.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_default();
+        let note = read_quick_note(&p);
+        body.push_str(&format!("\n## {name}\n\n{}\n", if note.is_empty() { "(no note)" } else { note.as_str() }));
+    }
+    let _ = std::fs::write(dir.join("notes.md"), body);
+}
+
+#[derive(Serialize)]
+struct QuickShotInfo {
+    path: String,
+    name: String,
+    note: String,
+}
+
+#[derive(Serialize)]
+struct QuickBatchInfo {
+    dir: Option<String>,
+    shots: Vec<QuickShotInfo>,
+}
+
+fn batch_info(inner: &Inner) -> QuickBatchInfo {
+    match &inner.quick_batch {
+        Some(d) if d.is_dir() => QuickBatchInfo {
+            dir: Some(d.to_string_lossy().to_string()),
+            shots: quick_pngs(d)
+                .into_iter()
+                .map(|p| QuickShotInfo {
+                    name: p.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_default(),
+                    note: read_quick_note(&p),
+                    path: p.to_string_lossy().to_string(),
+                })
+                .collect(),
+        },
+        _ => QuickBatchInfo { dir: None, shots: vec![] },
+    }
+}
+
+fn in_batch(inner: &Inner, png: &std::path::Path) -> bool {
+    matches!(&inner.quick_batch, Some(d) if png.parent() == Some(d.as_path()))
+}
+
+/// The shot is no longer waiting for a decision.
+fn settle_quick(inner: &mut Inner, png: &std::path::Path) {
+    if inner.quick_pending.as_deref() == Some(png) {
+        inner.quick_pending = None;
+    }
+}
+
+/// Copy, for a person: the marked-up picture, with the note printed under
+/// it when there is one, and nothing else on the clipboard (a chat pastes
+/// text in preference to an image). The shot stays on disk as it is.
+#[tauri::command]
+async fn quick_copy(
+    app: AppHandle,
+    state: State<'_, Shared>,
+    path: String,
+    note: String,
+    png_base64: String,
+) -> Result<(), String> {
+    use base64::Engine as _;
+    let p = std::path::PathBuf::from(&path);
+    write_quick_note(&p, &note)?;
+    let png = base64::engine::general_purpose::STANDARD.decode(png_base64).map_err(|e| e.to_string())?;
+    set_clipboard("", Some(&png))?;
+    {
+        let mut inner = state.lock().unwrap();
+        if in_batch(&inner, &p) {
+            if let Some(d) = inner.quick_batch.clone() {
+                write_batch_index(&d);
+            }
+        }
+        settle_quick(&mut inner, &p);
     }
     overlay::close_note(&app);
     Ok(())
 }
 
-/// How many quick shots the current batch holds, the pending one included.
+/// Copy for agent: the path and the note as text, wrapped in a saved
+/// prompt if one was picked.
 #[tauri::command]
-fn quick_count(state: State<Shared>) -> usize {
-    let inner = state.lock().unwrap();
-    inner
-        .quick_batch
-        .as_ref()
-        .map(|d| quick_pngs(d).len())
-        .unwrap_or(0)
-}
-
-#[derive(Serialize)]
-struct QuickBatch {
-    count: usize,
+async fn quick_copy_agent(
+    app: AppHandle,
+    state: State<'_, Shared>,
     path: String,
+    note: String,
+    prompt: Option<String>,
+) -> Result<String, String> {
+    let p = std::path::PathBuf::from(&path);
+    write_quick_note(&p, &note)?;
+    let text = wrap_quick(&app, quick_entry(&p, &note, &Prompts::load(&app)), prompt.as_deref());
+    set_clipboard(&text, None)?;
+    {
+        let mut inner = state.lock().unwrap();
+        if in_batch(&inner, &p) {
+            if let Some(d) = inner.quick_batch.clone() {
+                write_batch_index(&d);
+            }
+        }
+        settle_quick(&mut inner, &p);
+    }
+    overlay::close_note(&app);
+    Ok(text)
 }
 
-/// Moves the pending quick shot (and any markup beside it) out of the
-/// current batch into a fresh one, so it becomes shot 01 of a new folder.
-/// The old batch is left as it is.
+/// Add to batch: the shot moves into the open batch folder (started if
+/// there is none) as the next NN.png. For a shot already in the batch this
+/// just saves its note.
 #[tauri::command]
-fn quick_new_batch(app: AppHandle, state: State<Shared>) -> Result<QuickBatch, String> {
+fn quick_add_to_batch(app: AppHandle, state: State<Shared>, path: String, note: String) -> Result<QuickBatchInfo, String> {
     let mut inner = state.lock().unwrap();
-    let Some(old) = inner.quick_pending.clone() else {
-        return Err("no quick shot is waiting".into());
+    let p = std::path::PathBuf::from(&path);
+    let dest = if in_batch(&inner, &p) {
+        p.clone()
+    } else {
+        let dir = quick_batch_dir(&app, &mut inner);
+        std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+        let d = dir.join(format!("{:02}.png", quick_next(&dir)));
+        move_quick_files(&p, &d)?;
+        d
     };
-    inner.quick_batch = None;
-    let dir = quick_batch_dir(&app, &mut inner);
-    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    let new = dir.join("01.png");
-    std::fs::rename(&old, &new).map_err(|e| e.to_string())?;
-    let [old_orig, old_marks, _] = model::sidecars(&old);
-    let [orig, marks, _] = model::sidecars(&new);
-    if old_orig.exists() {
-        let _ = std::fs::rename(&old_orig, &orig);
+    write_quick_note(&dest, &note)?;
+    if let Some(d) = inner.quick_batch.clone() {
+        write_batch_index(&d);
     }
-    if old_marks.exists() {
-        let _ = std::fs::rename(&old_marks, &marks);
+    settle_quick(&mut inner, &p);
+    Ok(batch_info(&inner))
+}
+
+#[tauri::command]
+fn quick_batch(state: State<Shared>) -> QuickBatchInfo {
+    batch_info(&state.lock().unwrap())
+}
+
+#[tauri::command]
+fn quick_note(path: String) -> String {
+    read_quick_note(std::path::Path::new(&path))
+}
+
+/// Drops one shot from the batch; an emptied batch is closed and its
+/// folder removed.
+#[tauri::command]
+fn quick_batch_remove(state: State<Shared>, path: String) -> QuickBatchInfo {
+    let mut inner = state.lock().unwrap();
+    let p = std::path::PathBuf::from(&path);
+    remove_quick_files(&p);
+    settle_quick(&mut inner, &p);
+    if let Some(d) = inner.quick_batch.clone() {
+        if quick_pngs(&d).is_empty() {
+            let _ = std::fs::remove_dir_all(&d);
+            inner.quick_batch = None;
+        } else {
+            write_batch_index(&d);
+        }
     }
-    inner.quick_pending = Some(new.clone());
-    Ok(QuickBatch { count: 1, path: new.to_string_lossy().to_string() })
+    batch_info(&inner)
+}
+
+#[tauri::command]
+fn quick_batch_discard(state: State<Shared>) {
+    let mut inner = state.lock().unwrap();
+    if let Some(d) = inner.quick_batch.take() {
+        let _ = std::fs::remove_dir_all(&d);
+    }
+    if let Some(p) = inner.quick_pending.clone() {
+        if !p.exists() {
+            inner.quick_pending = None;
+        }
+    }
+}
+
+/// Copy batch for agent: every shot's path and note in one paste, then the
+/// batch closes so the next Add to batch starts a fresh one.
+#[tauri::command]
+async fn quick_batch_copy_agent(app: AppHandle, state: State<'_, Shared>, prompt: Option<String>) -> Result<String, String> {
+    let dir = state.lock().unwrap().quick_batch.take().ok_or("no batch is open")?;
+    let text = wrap_quick(&app, quick_batch_text(&dir, &Prompts::load(&app)), prompt.as_deref());
+    set_clipboard(&text, None)?;
+    Ok(text)
+}
+
+/// A picture alone on the clipboard, from the editor's canvas.
+#[tauri::command]
+fn copy_png(png_base64: String) -> Result<(), String> {
+    use base64::Engine as _;
+    let png = base64::engine::general_purpose::STANDARD.decode(png_base64).map_err(|e| e.to_string())?;
+    set_clipboard("", Some(&png))
+}
+
+/// Throws the shot away: the file, its original, its marks and its note.
+#[tauri::command]
+async fn discard_quick(app: AppHandle, state: State<'_, Shared>, path: String) -> Result<(), String> {
+    let p = std::path::PathBuf::from(&path);
+    remove_quick_files(&p);
+    {
+        let mut inner = state.lock().unwrap();
+        settle_quick(&mut inner, &p);
+        if in_batch(&inner, &p) {
+            if let Some(d) = inner.quick_batch.clone() {
+                write_batch_index(&d);
+            }
+        }
+    }
+    overlay::close_note(&app);
+    Ok(())
 }
 
 /// Puts a PNG on the clipboard as an image, so a marked-up quick shot can
@@ -2364,11 +2507,17 @@ fn main() {
             frame_for,
             commit_selection,
             commit_quick,
-            save_quick,
+            quick_copy,
+            quick_copy_agent,
+            quick_add_to_batch,
+            quick_batch,
+            quick_note,
+            quick_batch_remove,
+            quick_batch_discard,
+            quick_batch_copy_agent,
+            copy_png,
             discard_quick,
             start_quick,
-            quick_count,
-            quick_new_batch,
             quick_finish,
             copy_image,
             start_recording,

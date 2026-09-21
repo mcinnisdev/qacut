@@ -332,23 +332,34 @@ def bundles(f):
 
 def quick(f):
     print("quick shots")
-    def one(png, out, ms=None, new_batch=False, note=None):
-        req("quick", png=str(png), marks=ms, new_batch=new_batch)
-        req("resize", label="edit", w=1200, h=720)
+    def one(png, out, ms=None, note=None, js="", then="quick-discard"):
+        """Opens a quick shot, captures the window, then presses `then`."""
+        req("quick", png=str(png), marks=ms)
+        req("resize", label="edit", w=1200, h=760)
+        time.sleep(0.6)
         if note:
-            req("eval", label="edit", js=js_set("quick-note", note))
+            req("eval", label="edit", js=js_set("quick-note", note) + js)
+        elif js:
+            req("eval", label="edit", js=js)
         p = shot("edit", out)
+        req("eval", label="edit", js=f'document.getElementById("{then}").click();')
+        time.sleep(1.5)
         close_all()
         return p
 
-    one(f["profile"], UC / "copy-and-paste-1.png", new_batch=True)
-    one(f["profile"], UC / "mark-up-and-paste-1.png", ms=marks(arrow(330, 230, 120, 283)), new_batch=True)
-    one(f["profile"], UC / "mark-up-and-paste-2.png", ms=marks(arrow(330, 230, 120, 283), blur(240, 140, 200, 26)), new_batch=True)
-    p = one(f["save"], DOCS / "quick-window.png", ms=marks(arrow(360, 40, 108, 108)), new_batch=True,
-            note="Save button is clipped at 125% scaling.")
+    one(f["profile"], UC / "copy-and-paste-1.png")
+    one(f["profile"], UC / "mark-up-and-paste-1.png", ms=marks(arrow(330, 230, 120, 283)))
+    one(f["profile"], UC / "mark-up-and-paste-2.png",
+        ms=marks(arrow(330, 230, 120, 283), blur(240, 140, 200, 26), {"kind": "text", "x": 300, "y": 300, "text": "this label"}))
+    p = one(f["save"], DOCS / "quick-window.png", ms=marks(arrow(360, 40, 108, 108)),
+            note="Save button is clipped at 125% scaling.", then="quick-batch")
     copy(p, UC / "agent-feedback-loops-1.png")
-    one(f["toggle"], DOCS / "quick-batch.png")
-    one(f["timezone"], UC / "agent-feedback-loops-3.png")
+    one(f["toggle"], UC / "agent-feedback-loops-3.png", note="Toggle never saves.", then="quick-batch")
+    p = one(f["timezone"], DOCS / "quick-batch.png", ms=marks({"kind": "text", "x": 380, "y": 60, "text": "should line up"}),
+            js='document.getElementById("quick-show-batch").click();', then="quick-batch")
+    copy(p, UC / "agent-feedback-loops-3.png")
+    req("quick_batch_discard")
+
 
 
 def prompts():
