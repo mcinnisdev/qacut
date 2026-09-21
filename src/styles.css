@@ -833,6 +833,11 @@ body.peek {
   min-height: 0;
   overflow-y: auto;
 }
+/* The panel takes the window; the sliver of list left under it only
+   showed a second scrollbar. */
+.shortcuts:not([hidden]) ~ .peek-body {
+  display: none;
+}
 .shortcuts .hint {
   margin: 0 0 8px;
   font-size: 11.5px;
