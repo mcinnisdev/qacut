@@ -829,6 +829,9 @@ body.peek {
   padding: 10px 16px 14px;
   border-bottom: 1px solid var(--line);
   background: var(--raised);
+  /* Taller than most windows: shrink to what is left and scroll. */
+  min-height: 0;
+  overflow-y: auto;
 }
 .shortcuts .hint {
   margin: 0 0 8px;
