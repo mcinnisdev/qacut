@@ -8,6 +8,12 @@ aside: false
 
 What each release lets you do that the one before did not. Newest first; every heading links to the release, with the installer and the full list of commits.
 
+## 2.5.1 (2026-09-21)
+
+[Release notes and installer](https://github.com/mcinnisdev/qacut/releases/tag/v2.5.1)
+
+- The app and its installers are code-signed (SSL.com, Nick McInnis). SmartScreen may still warn while the certificate is new; that fades as installs accumulate.
+
 ## 2.5.0 (2026-09-21)
 
 [Release notes and installer](https://github.com/mcinnisdev/qacut/releases/tag/v2.5.0)
