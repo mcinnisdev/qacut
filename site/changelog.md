@@ -8,11 +8,16 @@ aside: false
 
 What each release lets you do that the one before did not. Newest first; every heading links to the release, with the installer and the full list of commits.
 
-## Unreleased
+## 2.7.0 (2026-09-22)
+
+[Release notes and installer](https://github.com/mcinnisdev/qacut/releases/tag/v2.7.0)
 
 - Studio: **Camera full screen** blocks, where the camera fills the frame for a talking section, fading in and out.
 - **Brands**: a window (tray → Brands…) for one brand per folder: files for agents, a logo, voice notes, the screenshot frame and the studio look. One brand is active; keep one per client. Your existing brand folder becomes the first brand.
 - **Frames for screenshots**: a copied shot, and every screenshot in an exported document, can sit on a gradient or on a brand's picture, placed behind the shot at a size you set so a logo in the corner stays visible, with rounded corners and a shadow. Pick a brand or a gradient in the editor's toolbar; it is remembered.
+- **Adjust** beside the editor's frame picker tunes the frame for one shot when the brand's defaults do not quite fit: the shot's size and position on the picture, the picture's crop, padding, corners and shadow. The editor shows the shot on its frame as it will be copied, and copies and exported documents use the changes; **Use defaults** goes back to the brand's.
+- Studio: **Left / right** and **Up / down** move the recording within its frame, and a picture background can keep its top, middle or bottom when cropped. The title centres over the recording, and the logo keeps to its own corner's space. Padding goes up to 30% for a smaller recording.
+- The editor's tool shortcuts along the bottom are buttons too: click one to pick the tool, and the one in use shows in red.
 - Studio: a recording takes the active brand's look when first opened, and **Use brand look** applies it on demand.
 - Update dialog shows the list of changes as plain text; release notes list app changes only.
 

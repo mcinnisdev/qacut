@@ -20,7 +20,7 @@ Turn on what you want in the tray's Studio section: **Capture keystrokes**, **Re
 
 The preview plays the composited video: a padded background, the frame with rounded corners and a shadow, the cursor, ripples on clicks, keystroke badges, the camera bubble, and narration.
 
-The inspector on the right sets the look. Padding, corners, background and shadow; the background is one of five gradients or a **Picture** of your own, chosen from the brand folder or picked from disk (it is copied into the brand folder), scaled to fill the video. Cursor size and smoothing. Which keystrokes show: shortcuts only, or every key. The camera bubble's size, corner and shape. A title and subtitle in the padding, and a logo from your brand folder.
+The inspector on the right sets the look. Padding, corners, background and shadow; the background is one of five gradients or a **Picture** of your own, chosen from the brand folder or picked from disk (it is copied into the brand folder), scaled to fill the video. **Left / right** and **Up / down** move the recording across the space the padding leaves, say to clear a logo in the picture's corner, and for a picture you choose which part to keep when it is cropped; **Use brand look** puts the recording back in the middle. Cursor size and smoothing. Which keystrokes show: shortcuts only, or every key. The camera bubble's size, corner and shape. A title and subtitle in the padding, and a logo from your brand folder.
 
 The timeline under the transport shows a filmstrip of the recording with zoom blocks and speed blocks above and clicks and key presses as markers. Click a key marker to hide that badge.
 
