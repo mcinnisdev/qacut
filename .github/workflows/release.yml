@@ -121,7 +121,8 @@ jobs:
             echo
             echo "## What changed"
             echo
-            git log "$range" --format='- %s (%h)' --no-merges | grep -v '^- Release v'
+            # Only commits that touch the app; the site and docs have their own history.
+            git log "$range" --format='- %s' --no-merges -- src src-tauri package.json | grep -v '^- Release v'
             if [ -n "$prev" ]; then
               echo
               echo "**Full changelog**: https://github.com/$GITHUB_REPOSITORY/compare/$prev...$GITHUB_REF_NAME"

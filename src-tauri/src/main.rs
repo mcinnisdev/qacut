@@ -855,7 +855,21 @@ fn check_for_updates(app: &AppHandle, quiet: bool) {
         };
         match checked {
             Ok(Some(update)) => {
-                let mut notes = update.body.clone().unwrap_or_default().trim().to_string();
+                // The release notes are Markdown for GitHub; the dialog shows
+                // just the list of changes, as plain lines.
+                let mut notes = update
+                    .body
+                    .clone()
+                    .unwrap_or_default()
+                    .lines()
+                    .filter(|l| l.starts_with("- "))
+                    .map(|l| l.replace("**", "").replace('`', ""))
+                    .collect::<Vec<_>>()
+                    .join("
+");
+                if notes.is_empty() {
+                    notes = "See the release notes on GitHub for what changed.".into();
+                }
                 if notes.len() > 700 {
                     notes.truncate(700);
                     notes.push_str("...");
