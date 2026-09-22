@@ -342,7 +342,8 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
 }
 
 /// Where the region lands on the canvas: fit inside the padded area,
-/// keeping aspect. Returns the frame rect and the scale from region px.
+/// keeping aspect, then moved across the space left around it by the
+/// frame's x and y. Returns the frame rect and the scale from region px.
 export function layout(canvasW: number, canvasH: number, project: Project, edits: Edits) {
   const pad = edits.frame.padding;
   const availW = canvasW * (1 - pad * 2);
@@ -351,7 +352,9 @@ export function layout(canvasW: number, canvasH: number, project: Project, edits
   const s = Math.min(availW / r.width, availH / r.height);
   const w = r.width * s;
   const h = r.height * s;
-  return { x: (canvasW - w) / 2, y: (canvasH - h) / 2, w, h, s };
+  const ax = Math.max(-1, Math.min(1, edits.frame.x || 0));
+  const ay = Math.max(-1, Math.min(1, edits.frame.y || 0));
+  return { x: ((canvasW - w) / 2) * (1 + ax), y: ((canvasH - h) / 2) * (1 + ay), w, h, s };
 }
 
 /// Draws the whole frame for time t (ms since the first source frame).
@@ -373,7 +376,8 @@ export function draw(
     const s = Math.max(W / im.naturalWidth, H / im.naturalHeight);
     const dw = im.naturalWidth * s;
     const dh = im.naturalHeight * s;
-    ctx.drawImage(im, (W - dw) / 2, (H - dh) / 2, dw, dh);
+    const a = edits.frame.anchor;
+    ctx.drawImage(im, (W - dw) / 2, a === "top" ? 0 : a === "bottom" ? H - dh : (H - dh) / 2, dw, dh);
   } else {
     const [c1, c2] = BACKGROUNDS[edits.frame.background === "image" ? "midnight" : edits.frame.background];
     const g = ctx.createLinearGradient(0, 0, W, H);
@@ -527,22 +531,24 @@ export function draw(
     if (titleText) {
       ctx.font = `650 ${titlePx}px ${uiFont}`;
       ctx.fillStyle = "#fff";
-      ctx.fillText(titleText, W / 2, y);
+      ctx.fillText(titleText, L.x + L.w / 2, y);
       y += titlePx + gap;
     }
     if (subText) {
       ctx.font = `450 ${subPx}px ${uiFont}`;
       ctx.fillStyle = "rgba(255,255,255,0.75)";
-      ctx.fillText(subText, W / 2, y);
+      ctx.fillText(subText, L.x + L.w / 2, y);
     }
     ctx.restore();
   }
 
-  // Logo in a corner of the padding, never over the frame.
+  // Logo in a corner of the padding, never over the frame. The room is on
+  // its own side, since the frame may have been moved off centre.
   const logo = frame.logo;
   if (logo && logo.complete && logo.naturalWidth > 0) {
-    const bandH = Math.min(L.y, H - (L.y + L.h));
-    const sideW = L.x;
+    const corner = edits.logo.corner;
+    const bandH = corner.startsWith("t") ? L.y : H - (L.y + L.h);
+    const sideW = corner.endsWith("l") ? L.x : W - (L.x + L.w);
     const room = Math.max(bandH, sideW);
     if (room >= H * 0.04) {
       const target = room * 0.8 * edits.logo.size;
@@ -550,7 +556,6 @@ export function draw(
       const lw = logo.naturalWidth * s;
       const lh = logo.naturalHeight * s;
       const m = Math.max(8, room * 0.15);
-      const corner = edits.logo.corner;
       const x = corner.endsWith("l") ? m : W - m - lw;
       const y = corner.startsWith("t") ? m : H - m - lh;
       ctx.save();

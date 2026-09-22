@@ -334,6 +334,9 @@ function bindInspector() {
     loadBackground(edits.frame.image);
   });
   on("shadow", "change", (el) => (edits.frame.shadow = (el as HTMLInputElement).checked));
+  on("frame-x", "input", (el) => (edits.frame.x = Number(el.value)));
+  on("frame-y", "input", (el) => (edits.frame.y = Number(el.value)));
+  on("bg-anchor", "change", (el) => (edits.frame.anchor = el.value as Edits["frame"]["anchor"]));
   on("cursor-size", "input", (el) => (edits.cursor.size = Number(el.value)));
   on("smoothing", "input", (el) => {
     edits.cursor.smoothing = Number(el.value);
@@ -1119,6 +1122,10 @@ async function applyBrandLook(announce: boolean) {
   edits.frame.padding = look.padding;
   edits.frame.radius = look.radius;
   edits.frame.shadow = look.shadow;
+  // The brand's look puts the video back in the middle.
+  edits.frame.x = 0;
+  edits.frame.y = 0;
+  edits.frame.anchor = "center";
   edits.logo.path = look.logo;
   edits.logo.corner = look.logo_corner as Edits["logo"]["corner"];
   edits.logo.size = look.logo_size;
@@ -1137,6 +1144,9 @@ function showInspector() {
   $<HTMLInputElement>("radius").value = String(edits.frame.radius);
   $<HTMLSelectElement>("background").value = edits.frame.background;
   $<HTMLInputElement>("shadow").checked = edits.frame.shadow;
+  $<HTMLInputElement>("frame-x").value = String(edits.frame.x);
+  $<HTMLInputElement>("frame-y").value = String(edits.frame.y);
+  $<HTMLSelectElement>("bg-anchor").value = edits.frame.anchor;
   $<HTMLInputElement>("cursor-size").value = String(edits.cursor.size);
   $<HTMLInputElement>("smoothing").value = String(edits.cursor.smoothing);
   $<HTMLInputElement>("ripple").checked = edits.cursor.ripple;

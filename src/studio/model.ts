@@ -89,7 +89,19 @@ export interface Speed {
 
 export interface Edits {
   /// `image` is a picture from the brand folder, used when background is "image".
-  frame: { padding: number; radius: number; background: Background; shadow: boolean; image: string | null };
+  /// `x` and `y` move the video across the space the padding leaves, -1
+  /// (left, top) to 1; `anchor` is the part of a picture kept when it is
+  /// cropped to the video's shape.
+  frame: {
+    padding: number;
+    radius: number;
+    background: Background;
+    shadow: boolean;
+    image: string | null;
+    x: number;
+    y: number;
+    anchor: "center" | "top" | "bottom";
+  };
   cursor: { size: number; smoothing: number; ripple: boolean };
   /// `hidden` holds the press times of badges the user removed.
   keys: { show: boolean; mode: KeyMode; hidden: number[] };
@@ -118,7 +130,7 @@ export interface Edits {
 }
 
 export const DEFAULT_EDITS: Edits = {
-  frame: { padding: 0.06, radius: 14, background: "midnight", shadow: true, image: null },
+  frame: { padding: 0.06, radius: 14, background: "midnight", shadow: true, image: null, x: 0, y: 0, anchor: "center" },
   cursor: { size: 1.6, smoothing: 0.35, ripple: true },
   keys: { show: true, mode: "shortcuts", hidden: [] },
   camera: { show: true, size: 0.22, corner: "br", shape: "circle" },
