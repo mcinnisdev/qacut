@@ -1,4 +1,5 @@
 use crate::model::{sidecars, slug, DocFormat, Session, ShotKind};
+use crate::studio::settings::ShotFrame;
 use anyhow::Result;
 use serde::Serialize;
 use std::fmt::Write as _;
@@ -500,9 +501,30 @@ pub fn render_document_markdown(session: &Session) -> String {
 
 /// The document as one self-contained web page: inline styling, images
 /// embedded, the brand logo at the top if there is one. Send the file.
-pub fn render_document_html(session: &Session, logo: Option<&Path>) -> String {
+pub fn render_document_html(session: &Session, logo: Option<&Path>, frame: &ShotFrame) -> String {
     let title = html_escape(&session.title());
     let mut body = String::new();
+    // The frame around each screenshot: a gradient or a picture behind it,
+    // with padding, rounded corners and a shadow, like the studio's frame.
+    let frame_css = if frame.is_none() {
+        String::new()
+    } else {
+        let bg = match frame.gradient() {
+            Some((c1, c2)) => format!("linear-gradient(135deg, {c1}, {c2})"),
+            None => frame
+                .image
+                .as_deref()
+                .and_then(|p| data_uri(Path::new(p)))
+                .map(|uri| format!("url({uri}) center / cover no-repeat"))
+                .unwrap_or_else(|| "linear-gradient(135deg, #141a2b, #2a1f4d)".into()),
+        };
+        format!(
+            "  .step .shot {{ padding: {pad}%; border-radius: 10px; background: {bg}; }}\n  .step .shot img {{ border: 0; border-radius: {radius}px; {shadow} }}\n",
+            pad = (frame.padding * 100.0).clamp(0.0, 25.0),
+            radius = frame.radius.clamp(0.0, 40.0),
+            shadow = if frame.shadow { "box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);" } else { "" },
+        )
+    };
     if let Some(uri) = logo.and_then(data_uri) {
         let _ = writeln!(body, r#"<img class="logo" src="{uri}" alt="" />"#);
     }
@@ -529,7 +551,11 @@ pub fn render_document_html(session: &Session, logo: Option<&Path>) -> String {
                 let _ = writeln!(body, "{}", html_paragraphs(st.note));
             }
             if let Some(uri) = data_uri(&st.abs) {
-                let _ = writeln!(body, r#"<img src="{uri}" alt="{}" />"#, html_escape(&st.title));
+                if frame.is_none() {
+                    let _ = writeln!(body, r#"<img src="{uri}" alt="{}" />"#, html_escape(&st.title));
+                } else {
+                    let _ = writeln!(body, r#"<div class="shot"><img src="{uri}" alt="{}" /></div>"#, html_escape(&st.title));
+                }
             }
             let _ = writeln!(body, "</div>");
         }
@@ -556,7 +582,7 @@ pub fn render_document_html(session: &Session, logo: Option<&Path>) -> String {
   .step h3:has(.n:only-child) {{ margin-bottom: 8px; }}
   .step p {{ margin: 0 0 10px; }}
   .step img {{ display: block; max-width: 100%; height: auto; border: 1px solid #e2e2e2; border-radius: 4px; }}
-  @media print {{ body {{ padding: 0; }} .step {{ break-inside: avoid; }} }}
+{frame_css}  @media print {{ body {{ padding: 0; }} .step {{ break-inside: avoid; }} }}
 </style>
 </head>
 <body>
@@ -570,7 +596,7 @@ pub fn render_document_html(session: &Session, logo: Option<&Path>) -> String {
 
 /// Writes the bundle (so its layout is final), then the document beside
 /// `bundle.md` as `document.md` or `document.html`. Returns the file.
-pub fn write_document(session: &mut Session, brand_src: &Path, format: DocFormat) -> Result<PathBuf> {
+pub fn write_document(session: &mut Session, brand_src: &Path, format: DocFormat, frame: &ShotFrame) -> Result<PathBuf> {
     write_bundle(session, brand_src)?;
     let path = match format {
         DocFormat::Markdown => {
@@ -601,7 +627,7 @@ pub fn write_document(session: &mut Session, brand_src: &Path, format: DocFormat
                 None
             };
             let p = session.root.join("document.html");
-            std::fs::write(&p, render_document_html(session, logo.as_deref()))?;
+            std::fs::write(&p, render_document_html(session, logo.as_deref(), frame))?;
             p
         }
     };
@@ -653,7 +679,7 @@ Click the cloud icon in the tray.
         assert!(md.contains("### Step 2\n\nChoose **Settings**."));
         assert!(md.contains("## Part 2\n"));
         assert!(md.contains("### Step 3: Unlink\n"));
-        let html = render_document_html(&s, None);
+        let html = render_document_html(&s, None, &ShotFrame::default());
         assert!(html.contains("<title>Unlink OneDrive</title>"));
         assert!(html.contains(r#"<span class="n">3</span>Unlink</h3>"#));
         let _ = std::fs::remove_dir_all(&base);

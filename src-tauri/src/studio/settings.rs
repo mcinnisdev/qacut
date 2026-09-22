@@ -74,9 +74,49 @@ impl Hotkeys {
     }
 }
 
+/// How a screenshot is dressed when it is copied for a person or placed in
+/// an exported document: a background (one of the studio's gradients, or a
+/// picture from the brand folder) with padding, rounded corners and a
+/// shadow. "none" leaves the shot as it is. Files on disk are never framed.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ShotFrame {
+    pub style: String,
+    pub image: Option<String>,
+    pub padding: f64,
+    pub radius: f64,
+    pub shadow: bool,
+}
+
+impl Default for ShotFrame {
+    fn default() -> Self {
+        ShotFrame { style: "none".into(), image: None, padding: 0.06, radius: 14.0, shadow: true }
+    }
+}
+
+impl ShotFrame {
+    /// The gradient's two colours, for the styles that are gradients.
+    pub fn gradient(&self) -> Option<(&'static str, &'static str)> {
+        Some(match self.style.as_str() {
+            "midnight" => ("#141a2b", "#2a1f4d"),
+            "sunset" => ("#3a1c3f", "#c2503a"),
+            "ocean" => ("#0d2b3e", "#1e6f8c"),
+            "slate" => ("#2b2f36", "#4a515b"),
+            "plain" => ("#1b1e23", "#1b1e23"),
+            _ => return None,
+        })
+    }
+
+    pub fn is_none(&self) -> bool {
+        self.style == "none" || (self.style == "image" && self.image.is_none())
+    }
+}
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
+    /// How copied and exported screenshots are framed.
+    pub shot_frame: ShotFrame,
     /// Record key presses through a low-level hook so shortcuts can be shown.
     pub keystrokes: bool,
     /// Record narration from the default microphone.

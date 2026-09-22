@@ -17,6 +17,8 @@ QACut Basic is the quick lane. A quick shot is one screenshot, marked up if you 
 
 Copy and Copy for agent leave the shot on disk too, so it is there if you need it again.
 
+**Frame** in the toolbar dresses what Copy produces: the shot on one of the studio's gradients, or on a picture from your brand folder, with padding, rounded corners and a shadow, and the note printed below it. The same frame goes around every screenshot in an exported document. The choice is remembered, and the files on disk stay plain, so an agent never gets padding.
+
 <figure class="qc-shot">
 <img src="/media/docs/quick-window.png" alt="The quick shot window: markup tools along the top, the note and the hand-off picker beside the shot." loading="lazy" />
 <figcaption>The quick shot window: markup tools along the top, the note and the hand-off picker beside the shot.</figcaption>

@@ -341,7 +341,8 @@ fn run(app: &AppHandle, req: Req) -> Result<String, String> {
             let brand = brand.map(PathBuf::from).unwrap_or_else(|| brand_dir(app));
             let mut inner = lock(app);
             let session = inner.session.as_mut().ok_or("no bundle open")?;
-            let p = crate::export::write_document(session, &brand, fmt).map_err(|e| e.to_string())?;
+            let frame = crate::studio::settings::Settings::load(&base_dir(app)).shot_frame;
+            let p = crate::export::write_document(session, &brand, fmt, &frame).map_err(|e| e.to_string())?;
             Ok(p.to_string_lossy().to_string())
         }
         Req::Finish => {

@@ -1515,6 +1515,18 @@ fn set_studio_settings(app: AppHandle, settings: studio::settings::Settings) -> 
 }
 
 #[tauri::command]
+fn get_shot_frame(app: AppHandle) -> studio::settings::ShotFrame {
+    studio::settings::Settings::load(&base_dir(&app)).shot_frame
+}
+
+#[tauri::command]
+fn set_shot_frame(app: AppHandle, frame: studio::settings::ShotFrame) -> Result<(), String> {
+    let mut st = studio::settings::Settings::load(&base_dir(&app));
+    st.shot_frame = frame;
+    st.save(&base_dir(&app)).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn get_hotkeys(app: AppHandle) -> studio::settings::Hotkeys {
     studio::settings::Settings::load(&base_dir(&app)).hotkeys
 }
@@ -2049,7 +2061,8 @@ async fn export_document(app: AppHandle, state: State<'_, Shared>, format: Strin
     let path = {
         let mut inner = state.lock().unwrap();
         let session = inner.session.as_mut().ok_or_else(|| "nothing captured yet".to_string())?;
-        let p = export::write_document(session, &brand_dir(&app), fmt).map_err(|e| e.to_string())?;
+        let frame = studio::settings::Settings::load(&base_dir(&app)).shot_frame;
+        let p = export::write_document(session, &brand_dir(&app), fmt, &frame).map_err(|e| e.to_string())?;
         inner.dirty = false;
         p
     };
@@ -2585,6 +2598,8 @@ fn main() {
             get_studio_settings,
             set_studio_settings,
             get_hotkeys,
+            get_shot_frame,
+            set_shot_frame,
             set_hotkeys,
             get_prompts,
             set_prompts,

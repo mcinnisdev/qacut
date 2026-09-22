@@ -10,6 +10,7 @@ import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { Session, Shot } from "./types";
+import { BACKGROUNDS } from "./studio/model";
 
 type Tool = "move" | "arrow" | "rect" | "blur" | "step" | "text";
 
@@ -564,9 +565,173 @@ function isDarkAlongBottom(ctx: CanvasRenderingContext2D, w: number, h: number):
   return n > 0 && sum / n < 110;
 }
 
+// ------------------------------------------------------------- frame
+//
+// How a copied or exported shot is dressed: none, one of the studio's
+// gradients, or a picture from the brand folder, with padding, rounded
+// corners and a shadow. Remembered in settings; files on disk stay plain.
+
+interface ShotFrame {
+  style: string;
+  image: string | null;
+  padding: number;
+  radius: number;
+  shadow: boolean;
+}
+let shotFrame: ShotFrame = { style: "none", image: null, padding: 0.06, radius: 14, shadow: true };
+let frameImg: HTMLImageElement | null = null;
+const frameSelect = document.getElementById("frame-style") as HTMLSelectElement;
+
+async function loadFrameImage(path: string | null) {
+  frameImg = null;
+  if (!path) return;
+  const resp = await fetch(`${convertFileSrc(path)}?v=${Date.now()}`);
+  if (!resp.ok) return;
+  const url = URL.createObjectURL(await resp.blob());
+  await new Promise<void>((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      frameImg = img;
+      resolve();
+    };
+    img.onerror = () => resolve();
+    img.src = url;
+  });
+}
+
+/// The editor's backdrop previews the frame.
+function previewFrame() {
+  const g = BACKGROUNDS[shotFrame.style as keyof typeof BACKGROUNDS];
+  if (g) bodyEl.style.background = `linear-gradient(135deg, ${g[0]}, ${g[1]})`;
+  else if (shotFrame.style === "image" && shotFrame.image) bodyEl.style.background = `url("${convertFileSrc(shotFrame.image)}") center / cover no-repeat`;
+  else bodyEl.style.background = "";
+}
+
+async function fillFrameChoices() {
+  const images = await invoke<{ name: string; path: string }[]>("list_brand_images").catch(() => []);
+  frameSelect.replaceChildren();
+  const add = (value: string, text: string) => {
+    const o = document.createElement("option");
+    o.value = value;
+    o.textContent = text;
+    frameSelect.append(o);
+  };
+  add("none", "No frame");
+  for (const [k, label] of [["midnight", "Midnight"], ["sunset", "Sunset"], ["ocean", "Ocean"], ["slate", "Slate"], ["plain", "Plain"]]) add(k, label);
+  for (const im of images) add(`image:${im.path}`, `Picture: ${im.name}`);
+  add("pick", "Choose a picture…");
+  frameSelect.value = shotFrame.style === "image" && shotFrame.image ? `image:${shotFrame.image}` : shotFrame.style;
+  if (frameSelect.value === "") frameSelect.value = "none";
+}
+
+async function loadFrame() {
+  try {
+    shotFrame = { ...shotFrame, ...(await invoke<ShotFrame>("get_shot_frame")) };
+  } catch {
+    // Defaults, then.
+  }
+  await fillFrameChoices();
+  await loadFrameImage(shotFrame.style === "image" ? shotFrame.image : null);
+  previewFrame();
+}
+
+frameSelect.addEventListener("change", async () => {
+  const v = frameSelect.value;
+  if (v === "pick") {
+    try {
+      const path = await invoke<string | null>("pick_brand_image");
+      if (path) shotFrame = { ...shotFrame, style: "image", image: path };
+    } catch (err) {
+      report("picture", err);
+    }
+  } else if (v.startsWith("image:")) {
+    shotFrame = { ...shotFrame, style: "image", image: v.slice(6) };
+  } else {
+    shotFrame = { ...shotFrame, style: v };
+  }
+  await fillFrameChoices();
+  await loadFrameImage(shotFrame.style === "image" ? shotFrame.image : null);
+  previewFrame();
+  void invoke("set_shot_frame", { frame: shotFrame }).catch((err) => report("frame", err));
+});
+
+/// The shot on its frame: background, padding, rounded corners, shadow,
+/// and the note in the padding below, as PNG base64.
+async function framedPng(note: string): Promise<string> {
+  const text = note.trim();
+  const w = canvas.width;
+  const h = canvas.height;
+  const P = Math.round(Math.max(w, h) * Math.min(0.25, Math.max(0.02, shotFrame.padding)));
+  const font = Math.max(14, Math.min(28, Math.round(w / 40)));
+  const lh = Math.round(font * 1.45);
+  const out = document.createElement("canvas");
+  const ctx = out.getContext("2d");
+  if (!ctx) throw new Error("no canvas");
+  const family = `${font}px "Segoe UI", system-ui, sans-serif`;
+  ctx.font = family;
+  const lines = text ? wrapLines(ctx, text, w) : [];
+  const textH = lines.length ? Math.round(font * 0.9) + lines.length * lh : 0;
+  const W = w + P * 2;
+  const H = h + P * 2 + textH;
+  out.width = W;
+  out.height = H;
+  const g = BACKGROUNDS[shotFrame.style as keyof typeof BACKGROUNDS];
+  if (shotFrame.style === "image" && frameImg && frameImg.naturalWidth > 0) {
+    // White under the picture, as the exported document has, so a picture
+    // with transparent parts looks the same in both.
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, W, H);
+    const s = Math.max(W / frameImg.naturalWidth, H / frameImg.naturalHeight);
+    const dw = frameImg.naturalWidth * s;
+    const dh = frameImg.naturalHeight * s;
+    ctx.drawImage(frameImg, (W - dw) / 2, (H - dh) / 2, dw, dh);
+  } else {
+    const [c1, c2] = g ?? BACKGROUNDS.midnight;
+    const grad = ctx.createLinearGradient(0, 0, W, H);
+    grad.addColorStop(0, c1);
+    grad.addColorStop(1, c2);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+  }
+  const radius = Math.max(4, Math.round(shotFrame.radius * Math.max(0.5, Math.min(1.5, w / 1280))));
+  if (shotFrame.shadow) {
+    ctx.save();
+    ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+    ctx.shadowBlur = P * 0.7;
+    ctx.shadowOffsetY = P * 0.2;
+    ctx.fillStyle = "#000";
+    ctx.beginPath();
+    ctx.roundRect(P, P, w, h, radius);
+    ctx.fill();
+    ctx.restore();
+  }
+  ctx.save();
+  ctx.beginPath();
+  ctx.roundRect(P, P, w, h, radius);
+  ctx.clip();
+  ctx.drawImage(canvas, P, P);
+  ctx.restore();
+  if (lines.length) {
+    // White on every gradient (they are all dark); on a picture, white with
+    // a shadow so it reads on anything.
+    ctx.font = family;
+    ctx.textBaseline = "top";
+    ctx.fillStyle = "#ffffff";
+    ctx.shadowColor = "rgba(0, 0, 0, 0.6)";
+    ctx.shadowBlur = font * 0.5;
+    ctx.shadowOffsetY = 1;
+    lines.forEach((l, i) => ctx.fillText(l, P, P + h + Math.round(font * 0.9) + i * lh));
+  }
+  const blob = await new Promise<Blob | null>((res) => out.toBlob(res, "image/png"));
+  if (!blob) throw new Error("empty image");
+  return toBase64(blob);
+}
+
 /// The marked-up shot with the note printed in a band under it (the canvas
-/// is extended, nothing is covered), as PNG base64. No note, no band.
+/// is extended, nothing is covered), as PNG base64. No note, no band. With
+/// a frame chosen, the shot sits on it instead.
 async function captionedPng(note: string): Promise<string> {
+  if (shotFrame.style !== "none" && !(shotFrame.style === "image" && !frameImg)) return framedPng(note);
   const text = note.trim();
   const w = canvas.width;
   const h = canvas.height;
@@ -1238,6 +1403,7 @@ function report(where: string, err: unknown) {
 }
 
 async function boot() {
+  void loadFrame();
   if (quick) {
     quickSide.hidden = false;
     title.textContent = "Quick shot";

@@ -11,6 +11,7 @@ What each release lets you do that the one before did not. Newest first; every h
 ## Unreleased
 
 - Studio: **Camera full screen** blocks, where the camera fills the frame for a talking section, fading in and out.
+- **Frames for screenshots**: a copied shot, and every screenshot in an exported document, can sit on a gradient or a picture from your brand folder with padding, rounded corners and a shadow. Pick it in the editor's toolbar; it is remembered.
 - Update dialog shows the list of changes as plain text; release notes list app changes only.
 
 ## 2.6.0 (2026-09-22)
