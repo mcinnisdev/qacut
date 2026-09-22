@@ -61,6 +61,14 @@ jobs:
           Expand-Archive CodeSignTool.zip -DestinationPath C:\CodeSignTool
           $bat = Get-ChildItem C:\CodeSignTool -Recurse -Filter CodeSignTool.bat | Select-Object -First 1
           if (-not $bat) { throw "CodeSignTool.bat not in the download" }
+          # CodeSignTool runs its own Java 11.0.2, which predates SSL.com's
+          # 2022 TLS root; cs.ssl.com moved to a certificate under that root
+          # on 2026-09-22, so trust it here or every signature fails.
+          $keytool = Get-ChildItem $bat.DirectoryName -Recurse -Filter keytool.exe | Select-Object -First 1
+          $cacerts = Get-ChildItem $bat.DirectoryName -Recurse -Filter cacerts | Select-Object -First 1
+          if (-not $keytool -or -not $cacerts) { throw "CodeSignTool's Java or its cacerts not found" }
+          & $keytool.FullName -importcert -noprompt -storepass changeit -alias sslcom-tls-rsa-root-ca-2022 -file scripts/ssl-com-tls-rsa-root-ca-2022.pem -keystore $cacerts.FullName
+          if ($LASTEXITCODE -ne 0) { throw "could not add SSL.com's TLS root to CodeSignTool's Java" }
           "CODESIGNTOOL_PATH=$($bat.DirectoryName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           $sign = Join-Path $env:GITHUB_WORKSPACE "scripts\sign.cmd"
           $conf = @{ bundle = @{ windows = @{ signCommand = @{ cmd = "cmd"; args = @("/c", $sign, "%1") } } } }
