@@ -113,7 +113,7 @@ fn lock(app: &AppHandle) -> MutexGuard<'_, Inner> {
 fn place(png: &str, abs: &Path, marks: Option<&str>) -> Result<(), String> {
     std::fs::copy(png, abs).map_err(|e| format!("copy {png}: {e}"))?;
     if let Some(m) = marks {
-        let [orig, marks_path, _] = crate::model::sidecars(abs);
+        let [orig, marks_path, ..] = crate::model::sidecars(abs);
         std::fs::copy(abs, &orig).map_err(|e| e.to_string())?;
         std::fs::write(&marks_path, m).map_err(|e| e.to_string())?;
     }

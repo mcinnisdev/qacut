@@ -229,7 +229,7 @@ pub fn start_recording(
                 (true, Some((cx, cy))) => {
                     let mut composite = raw.clone();
                     mark_cursor(&mut composite, cx as i64, cy as i64, ring, true);
-                    let [orig, marks, _] = crate::model::sidecars(&png);
+                    let [orig, marks, ..] = crate::model::sidecars(&png);
                     raw.save(&orig).is_ok()
                         && std::fs::write(&marks, format!(r#"[{{"kind":"click","x":{cx},"y":{cy}}}]"#)).is_ok()
                         && composite.save(&png).is_ok()

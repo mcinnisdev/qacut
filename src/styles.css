@@ -1318,6 +1318,7 @@ body.edit {
 }
 
 .edit-wrap {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -1506,6 +1507,31 @@ body.edit {
   border: 1px solid var(--line);
   cursor: crosshair;
 }
+.edit-stage {
+  position: relative;
+  flex: none;
+  display: flex;
+}
+.edit-stage.framed {
+  display: block;
+  overflow: hidden;
+  border-radius: 6px;
+}
+.edit-stage.framed canvas {
+  position: absolute;
+  border: 0;
+}
+.stage-note {
+  position: absolute;
+  color: #fff;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  white-space: pre;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+}
+.stage-note[hidden] {
+  display: none;
+}
 .edit-body {
   position: relative;
 }
@@ -1621,11 +1647,94 @@ body.edit {
 .edit-foot {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: 12px;
   padding: 7px 12px;
   font-size: 11.5px;
   color: var(--faint);
   border-top: 1px solid var(--line);
+}
+/* The tools, as their shortcuts: the one in use is red. */
+.foot-tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: -5px;
+}
+.foot-tool {
+  font-size: 11.5px;
+  color: var(--faint);
+  padding: 2px 5px;
+  border-radius: 5px;
+}
+.foot-tool:hover {
+  color: var(--text);
+}
+.foot-tool.on {
+  color: var(--signal);
+}
+.foot-tool.on kbd {
+  color: var(--signal);
+  border-color: var(--signal);
+}
+.foot-tool:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 1px;
+}
+
+/* Adjust: this shot's frame knobs, dropped under the toolbar. */
+#frame-adjust.on {
+  color: var(--signal);
+}
+#frame-adjust[hidden] {
+  display: none;
+}
+.frame-panel {
+  position: absolute;
+  top: 46px;
+  z-index: 5;
+  width: 320px;
+  max-height: calc(100% - 96px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+.frame-panel[hidden] {
+  display: none;
+}
+.frame-preview {
+  display: block;
+  width: 100%;
+  border-radius: 5px;
+}
+.frame-knobs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  accent-color: var(--signal);
+}
+.frame-knobs .lib-field b {
+  font-weight: 500;
+  color: var(--text);
+  margin-left: 6px;
+}
+.frame-knobs input[type="range"] {
+  width: 100%;
+}
+.frame-knobs .check-field {
+  padding-top: 0;
+}
+.frame-panel-foot {
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 /* ------------------------------------------------------------- studio */

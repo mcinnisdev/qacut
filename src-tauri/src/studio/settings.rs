@@ -129,6 +129,45 @@ impl ShotFrame {
     pub fn is_none(&self) -> bool {
         self.style == "none" || (self.style == "image" && self.image.is_none())
     }
+
+    /// This frame with one shot's tweaks laid over it.
+    pub fn with(&self, t: &FrameTweak) -> ShotFrame {
+        ShotFrame {
+            padding: t.padding.unwrap_or(self.padding),
+            radius: t.radius.unwrap_or(self.radius),
+            shadow: t.shadow.unwrap_or(self.shadow),
+            fit_scale: t.fit_scale.unwrap_or(self.fit_scale),
+            anchor: t.anchor.clone().unwrap_or_else(|| self.anchor.clone()),
+            ..self.clone()
+        }
+    }
+}
+
+/// One shot's changes to the frame, for when the brand's defaults do not
+/// quite fit it: kept beside the shot as `<name>.frame.json`. Each field
+/// left out keeps the frame's own value. `x` and `y` move the shot across
+/// the space the picture leaves around it, -1 (left, top) to 1.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct FrameTweak {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fit_scale: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub padding: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub radius: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub shadow: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub anchor: Option<String>,
+    pub x: f64,
+    pub y: f64,
+}
+
+impl FrameTweak {
+    pub fn load(file: &std::path::Path) -> FrameTweak {
+        std::fs::read_to_string(file).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default()
+    }
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]

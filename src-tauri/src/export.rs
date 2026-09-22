@@ -1,5 +1,5 @@
 use crate::model::{sidecars, slug, DocFormat, Session, ShotKind};
-use crate::studio::settings::ShotFrame;
+use crate::studio::settings::{FrameTweak, ShotFrame};
 use anyhow::Result;
 use serde::Serialize;
 use std::fmt::Write as _;
@@ -506,6 +506,7 @@ pub fn render_document_html(session: &Session, logo: Option<&Path>, frame: &Shot
     let mut body = String::new();
     // The frame around each screenshot: a gradient or a picture behind it,
     // with padding, rounded corners and a shadow, like the studio's frame.
+    let picture_size = frame.image.as_deref().map(Path::new).filter(|p| p.is_file()).and_then(|p| image::image_dimensions(p).ok());
     let frame_css = if frame.is_none() {
         String::new()
     } else {
@@ -568,7 +569,18 @@ pub fn render_document_html(session: &Session, logo: Option<&Path>, frame: &Shot
                 if frame.is_none() {
                     let _ = writeln!(body, r#"<img src="{uri}" alt="{}" />"#, html_escape(&st.title));
                 } else {
-                    let _ = writeln!(body, r#"<div class="shot"><img src="{uri}" alt="{}" /></div>"#, html_escape(&st.title));
+                    let [.., tweak_file] = sidecars(&st.abs);
+                    let tweak = FrameTweak::load(&tweak_file);
+                    let (div, img) = if tweak == FrameTweak::default() {
+                        (String::new(), String::new())
+                    } else {
+                        tweaked_shot_style(&frame.with(&tweak), &tweak, picture_size, image::image_dimensions(&st.abs).ok())
+                    };
+                    let _ = writeln!(
+                        body,
+                        r#"<div class="shot"{div}><img src="{uri}" alt="{}"{img} /></div>"#,
+                        html_escape(&st.title)
+                    );
                 }
             }
             let _ = writeln!(body, "</div>");
@@ -606,6 +618,47 @@ pub fn render_document_html(session: &Session, logo: Option<&Path>, frame: &Shot
 </html>
 "#
     )
+}
+
+/// Inline styles for one shot whose frame was tweaked in the editor, over
+/// the document's shared frame styles: the shot's size, where it sits on
+/// the picture, the picture's crop, its corners and shadow.
+fn tweaked_shot_style(f: &ShotFrame, t: &FrameTweak, picture: Option<(u32, u32)>, shot: Option<(u32, u32)>) -> (String, String) {
+    let radius = f.radius.clamp(0.0, 40.0);
+    let shadow = if f.shadow { "0 10px 30px rgba(0, 0, 0, 0.35)" } else { "none" };
+    match picture {
+        Some((pw, ph)) => {
+            let fit = f.fit_scale.clamp(0.3, 1.0);
+            // The shot's share of the space left around it, as a translate
+            // of the shot's own size. The content box is the picture's width
+            // less 4% padding on each side.
+            let dx = (1.0 - fit) / (2.0 * fit) * t.x.clamp(-1.0, 1.0) * 100.0;
+            let dy = shot
+                .filter(|&(sw, _)| sw > 0)
+                .map(|(sw, sh)| {
+                    let hc = ph as f64 / pw as f64 - 0.08;
+                    let hi = fit * 0.92 * sh as f64 / sw as f64;
+                    if hi <= 0.0 { 0.0 } else { ((hc - hi) / 2.0).max(0.0) / hi * t.y.clamp(-1.0, 1.0) * 100.0 }
+                })
+                .unwrap_or(0.0);
+            let anchor = match f.anchor.as_str() {
+                "top" => "top",
+                "bottom" => "bottom",
+                _ => "center",
+            };
+            (
+                format!(r#" style="background-position: center {anchor};""#),
+                format!(
+                    r#" style="width: {:.2}%; transform: translate({dx:.2}%, {dy:.2}%); border-radius: {radius}px; box-shadow: {shadow};""#,
+                    fit * 100.0
+                ),
+            )
+        }
+        None => (
+            format!(r#" style="padding: {:.2}%;""#, (f.padding * 100.0).clamp(0.0, 25.0)),
+            format!(r#" style="border-radius: {radius}px; box-shadow: {shadow};""#),
+        ),
+    }
 }
 
 /// Writes the bundle (so its layout is final), then the document beside
@@ -651,6 +704,23 @@ pub fn write_document(session: &mut Session, brand_src: &Path, format: DocFormat
 #[cfg(test)]
 mod document_tests {
     use super::*;
+
+    #[test]
+    fn a_tweaked_shot_moves_and_resizes_on_the_picture() {
+        let frame = ShotFrame { style: "image".into(), fit_scale: 0.8, ..ShotFrame::default() };
+        let t = FrameTweak { fit_scale: Some(0.5), radius: Some(0.0), shadow: Some(false), anchor: Some("top".into()), x: 1.0, y: 0.0, ..FrameTweak::default() };
+        let (div, img) = tweaked_shot_style(&frame.with(&t), &t, Some((1600, 900)), Some((800, 400)));
+        assert!(div.contains("center top"));
+        // Half the width, pushed right by the whole of its half-share of the space.
+        assert!(img.contains("width: 50.00%"));
+        assert!(img.contains("translate(50.00%, 0.00%)"));
+        assert!(img.contains("box-shadow: none"));
+        // On a gradient a tweak sets the padding.
+        let g = ShotFrame { style: "ocean".into(), ..ShotFrame::default() };
+        let t = FrameTweak { padding: Some(0.1), ..FrameTweak::default() };
+        let (div, _) = tweaked_shot_style(&g.with(&t), &t, None, None);
+        assert!(div.contains("padding: 10.00%"));
+    }
     use crate::model::Shot;
 
     fn shot(file: &str, title: &str, note: &str) -> Shot {

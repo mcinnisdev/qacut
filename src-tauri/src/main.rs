@@ -605,8 +605,8 @@ fn finish_recording(app: &AppHandle) {
                 if std::fs::rename(&src, &abs).is_err() && std::fs::copy(&src, &abs).is_err() {
                     continue;
                 }
-                let [src_orig, src_marks, _] = model::sidecars(&src);
-                let [orig, marks, _] = model::sidecars(&abs);
+                let [src_orig, src_marks, ..] = model::sidecars(&src);
+                let [orig, marks, ..] = model::sidecars(&abs);
                 if src_orig.exists() {
                     let _ = std::fs::rename(&src_orig, &orig).or_else(|_| std::fs::copy(&src_orig, &orig).map(|_| ()));
                 }
@@ -1551,6 +1551,28 @@ fn set_shot_frame(app: AppHandle, frame: studio::settings::ShotFrame) -> Result<
     st.save(&base_dir(&app)).map_err(|e| e.to_string())
 }
 
+/// One shot's frame tweaks (size, position, corners, shadow), from beside
+/// the shot; empty when it has none.
+#[tauri::command]
+fn get_frame_tweak(path: String) -> studio::settings::FrameTweak {
+    let [.., frame] = model::sidecars(std::path::Path::new(&path));
+    studio::settings::FrameTweak::load(&frame)
+}
+
+/// Keeps one shot's frame tweaks beside it; no tweaks removes the file.
+#[tauri::command]
+fn set_frame_tweak(path: String, tweak: studio::settings::FrameTweak) -> Result<(), String> {
+    let [.., frame] = model::sidecars(std::path::Path::new(&path));
+    if tweak == studio::settings::FrameTweak::default() {
+        if frame.exists() {
+            std::fs::remove_file(&frame).map_err(|e| e.to_string())?;
+        }
+        return Ok(());
+    }
+    let json = serde_json::to_string_pretty(&tweak).map_err(|e| e.to_string())?;
+    std::fs::write(&frame, json).map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 fn get_hotkeys(app: AppHandle) -> studio::settings::Hotkeys {
     studio::settings::Settings::load(&base_dir(&app)).hotkeys
@@ -1921,7 +1943,7 @@ fn load_markup(path: String) -> Result<Markup, String> {
     if !png.exists() {
         return Err("that image is gone".into());
     }
-    let [orig, marks, _] = model::sidecars(png);
+    let [orig, marks, ..] = model::sidecars(png);
     let original = if orig.exists() { orig } else { png.to_path_buf() };
     let marks = std::fs::read_to_string(marks)
         .ok()
@@ -1944,7 +1966,7 @@ async fn save_markup(
 ) -> Result<(), String> {
     use base64::Engine as _;
     let png = std::path::Path::new(&path);
-    let [orig, marks_path, _] = model::sidecars(png);
+    let [orig, marks_path, ..] = model::sidecars(png);
     if !orig.exists() {
         std::fs::copy(png, &orig).map_err(|e| e.to_string())?;
     }
@@ -2242,17 +2264,17 @@ fn write_quick_note(png: &std::path::Path, note: &str) -> Result<(), String> {
 
 /// The shot, its untouched original, its marks and its note.
 fn remove_quick_files(png: &std::path::Path) {
-    let [orig, marks, _] = model::sidecars(png);
-    for p in [png.to_path_buf(), orig, marks, quick_note_path(png)] {
+    let [orig, marks, _, frame] = model::sidecars(png);
+    for p in [png.to_path_buf(), orig, marks, frame, quick_note_path(png)] {
         let _ = std::fs::remove_file(p);
     }
 }
 
 fn move_quick_files(from: &std::path::Path, to: &std::path::Path) -> Result<(), String> {
     std::fs::rename(from, to).map_err(|e| e.to_string())?;
-    let [orig_a, marks_a, _] = model::sidecars(from);
-    let [orig_b, marks_b, _] = model::sidecars(to);
-    for (a, b) in [(orig_a, orig_b), (marks_a, marks_b), (quick_note_path(from), quick_note_path(to))] {
+    let [orig_a, marks_a, _, frame_a] = model::sidecars(from);
+    let [orig_b, marks_b, _, frame_b] = model::sidecars(to);
+    for (a, b) in [(orig_a, orig_b), (marks_a, marks_b), (frame_a, frame_b), (quick_note_path(from), quick_note_path(to))] {
         if a.exists() {
             let _ = std::fs::rename(a, b);
         }
@@ -2625,6 +2647,8 @@ fn main() {
             get_hotkeys,
             get_shot_frame,
             set_shot_frame,
+            get_frame_tweak,
+            set_frame_tweak,
             brand::list_brands,
             brand::get_brand,
             brand::save_brand,

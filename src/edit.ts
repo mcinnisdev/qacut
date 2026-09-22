@@ -56,8 +56,10 @@ const quick = params.get("quick") === "1";
 const title = document.getElementById("title") as HTMLSpanElement;
 const canvas = document.getElementById("canvas") as HTMLCanvasElement;
 const bodyEl = document.getElementById("body") as HTMLDivElement;
+const stage = document.getElementById("stage") as HTMLDivElement;
+const stageNote = document.getElementById("stage-note") as HTMLDivElement;
 const toolButtons = Array.from(
-  document.querySelectorAll<HTMLButtonElement>(".tool"),
+  document.querySelectorAll<HTMLButtonElement>(".foot-tool"),
 );
 
 const ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
@@ -286,12 +288,44 @@ function render() {
   if (selected !== null && marks[selected]) drawSelection(marks[selected]);
 }
 
+/// Sizes the shot to the window. With a frame, the shot is shown on it as
+/// it will be copied: the picture or gradient, the shot's size and place
+/// on it, its corners and shadow, the note under it.
 function fit() {
   const maxW = bodyEl.clientWidth - 24;
   const maxH = bodyEl.clientHeight - 24;
-  scale = Math.min(1, maxW / img.width, maxH / img.height);
-  canvas.style.width = `${Math.round(img.width * scale)}px`;
-  canvas.style.height = `${Math.round(img.height * scale)}px`;
+  if (!img.width) return;
+  if (!hasFrame()) {
+    scale = Math.min(1, maxW / img.width, maxH / img.height);
+    stage.classList.remove("framed");
+    stage.style.cssText = "";
+    stageNote.hidden = true;
+    canvas.style.cssText = `width: ${Math.round(img.width * scale)}px; height: ${Math.round(img.height * scale)}px;`;
+    return;
+  }
+  const L = frameLayout(currentNote());
+  const k = Math.min(1, maxW / L.W, maxH / L.H);
+  scale = k;
+  const px = (v: number) => `${Math.round(v * k)}px`;
+  stage.classList.add("framed");
+  const bg =
+    L.picture && L.pic
+      ? `#fff url("${L.picture.src}") ${px(L.pic.x)} ${px(L.pic.y)} / ${px(L.pic.w)} ${px(L.pic.h)} no-repeat`
+      : `linear-gradient(to bottom right, ${L.gradient[0]}, ${L.gradient[1]})`;
+  stage.style.cssText = `width: ${px(L.W)}; height: ${px(L.H)}; background: ${bg};`;
+  canvas.style.cssText =
+    `left: ${px(L.sx)}; top: ${px(L.sy)}; width: ${px(img.width)}; height: ${px(img.height)}; border-radius: ${px(L.radius)};` +
+    (L.shadow ? ` box-shadow: 0 ${px(L.W * 0.01)} ${px(L.W * 0.03)} rgba(0, 0, 0, 0.5);` : "");
+  stageNote.hidden = L.lines.length === 0;
+  stageNote.textContent = L.lines.join("\n");
+  stageNote.style.cssText = `left: ${px(L.sx)}; top: ${px(L.textY)}; font-size: ${L.font * k}px; line-height: ${px(L.lh)};`;
+}
+
+/// The note that is printed under a copied shot.
+function currentNote() {
+  if (!quick && !review) return "";
+  const el = document.getElementById(quick ? "quick-note" : "shot-note") as HTMLTextAreaElement | null;
+  return el?.value ?? "";
 }
 
 function pos(e: MouseEvent) {
@@ -587,6 +621,8 @@ let framePick: ShotFrame = { ...NO_FRAME };
 let frameResolved: ShotFrame = { ...NO_FRAME };
 let frameImg: HTMLImageElement | null = null;
 const frameSelect = document.getElementById("frame-style") as HTMLSelectElement;
+const frameAdjustBtn = document.getElementById("frame-adjust") as HTMLButtonElement;
+const framePanel = document.getElementById("frame-panel") as HTMLDivElement;
 
 async function loadFrameImage(path: string | null) {
   frameImg = null;
@@ -605,13 +641,38 @@ async function loadFrameImage(path: string | null) {
   });
 }
 
-/// The editor's backdrop previews the frame.
+/// One shot's changes to the frame, kept beside it: each field left out
+/// follows the frame; x and y move the shot across the picture, -1 to 1.
+interface FrameTweak {
+  fit_scale?: number;
+  padding?: number;
+  radius?: number;
+  shadow?: boolean;
+  anchor?: string;
+  x: number;
+  y: number;
+}
+let tweak: FrameTweak = { x: 0, y: 0 };
+
+/// The frame this shot gets: the pick, with the shot's tweaks over it.
+function shotFrame(): ShotFrame {
+  const f = { ...frameResolved };
+  if (tweak.fit_scale !== undefined) f.fit_scale = tweak.fit_scale;
+  if (tweak.padding !== undefined) f.padding = tweak.padding;
+  if (tweak.radius !== undefined) f.radius = tweak.radius;
+  if (tweak.shadow !== undefined) f.shadow = tweak.shadow;
+  if (tweak.anchor !== undefined) f.anchor = tweak.anchor;
+  return f;
+}
+
+function hasFrame() {
+  return frameResolved.style !== "none" && !(frameResolved.style === "image" && !frameImg);
+}
+
+/// The editor shows the shot on its frame.
 function previewFrame() {
-  const f = frameResolved;
-  const g = BACKGROUNDS[f.style as keyof typeof BACKGROUNDS];
-  if (g) bodyEl.style.background = `linear-gradient(135deg, ${g[0]}, ${g[1]})`;
-  else if (f.style === "image" && f.image) bodyEl.style.background = `#fff url("${convertFileSrc(f.image)}") center ${f.anchor || "center"} / cover no-repeat`;
-  else bodyEl.style.background = "";
+  fit();
+  render();
 }
 
 async function fillFrameChoices() {
@@ -641,6 +702,9 @@ async function loadFrame() {
   await fillFrameChoices();
   await loadFrameImage(frameResolved.style === "image" ? frameResolved.image : null);
   previewFrame();
+  frameAdjustBtn.hidden = !hasFrame();
+  if (frameAdjustBtn.hidden) closeFramePanel();
+  else if (!framePanel.hidden) fillFramePanel();
 }
 
 frameSelect.addEventListener("change", async () => {
@@ -651,65 +715,177 @@ frameSelect.addEventListener("change", async () => {
   } catch (err) {
     report("frame", err);
   }
+  // Off the select, so the tool keys (B, M, S) pick tools, not frames.
+  frameSelect.blur();
   await loadFrame();
 });
+
+// ------------------------------------------------------- frame panel
+//
+// Adjust: knobs for this shot's frame, for when the brand's defaults do not
+// quite fit it. Only the knobs turned are kept, so the rest still follow
+// the brand; saved beside the shot as it changes.
+
+const fp = <T extends HTMLElement>(id: string) => document.getElementById(`fp-${id}`) as T;
+const fpPreview = document.getElementById("frame-preview") as HTMLCanvasElement;
+const fpFit = fp<HTMLInputElement>("fit");
+const fpPad = fp<HTMLInputElement>("pad");
+const fpX = fp<HTMLInputElement>("x");
+const fpY = fp<HTMLInputElement>("y");
+const fpAnchor = fp<HTMLSelectElement>("anchor");
+const fpRadius = fp<HTMLInputElement>("radius");
+const fpShadow = fp<HTMLInputElement>("shadow");
+
+function pct(v: number) {
+  return `${Math.round(v * 100)}%`;
+}
+
+function offset(v: number, neg: string, pos: string) {
+  return Math.abs(v) < 0.01 ? "centred" : `${Math.round(Math.abs(v) * 100)}% ${v < 0 ? neg : pos}`;
+}
+
+/// The knobs from the shot's frame, and the rows that apply to it: size,
+/// position and crop on a picture, padding on a gradient.
+function fillFramePanel() {
+  const f = shotFrame();
+  const picture = f.style === "image" && frameImg !== null;
+  fp<HTMLElement>("fit-row").hidden = !picture;
+  fp<HTMLElement>("x-row").hidden = !picture;
+  fp<HTMLElement>("y-row").hidden = !picture;
+  fp<HTMLElement>("anchor-row").hidden = !picture;
+  fp<HTMLElement>("pad-row").hidden = picture;
+  fpFit.value = String(f.fit_scale);
+  fpPad.value = String(f.padding);
+  fpX.value = String(tweak.x);
+  fpY.value = String(tweak.y);
+  fpAnchor.value = f.anchor || "center";
+  fpRadius.value = String(f.radius);
+  fpShadow.checked = f.shadow;
+  showFrameValues();
+}
+
+function showFrameValues() {
+  fp<HTMLElement>("fit-v").textContent = pct(Number(fpFit.value));
+  fp<HTMLElement>("pad-v").textContent = pct(Number(fpPad.value));
+  fp<HTMLElement>("x-v").textContent = offset(Number(fpX.value), "left", "right");
+  fp<HTMLElement>("y-v").textContent = offset(Number(fpY.value), "up", "down");
+  fp<HTMLElement>("radius-v").textContent = `${fpRadius.value}px`;
+  drawFramePreview();
+}
+
+let previewQueued = false;
+/// The copy as it will look, scaled into the panel, at most once a frame.
+function drawFramePreview() {
+  if (previewQueued || framePanel.hidden || !img.width) return;
+  previewQueued = true;
+  requestAnimationFrame(() => {
+    previewQueued = false;
+    const src = framedCanvas(currentNote());
+    const cw = fpPreview.clientWidth || 320;
+    const k = Math.min(cw / src.width, 180 / src.height);
+    fpPreview.width = Math.round(src.width * k * devicePixelRatio);
+    fpPreview.height = Math.round(src.height * k * devicePixelRatio);
+    fpPreview.style.height = `${Math.round(src.height * k)}px`;
+    const pctx = fpPreview.getContext("2d");
+    pctx?.drawImage(src, 0, 0, fpPreview.width, fpPreview.height);
+  });
+}
+
+let tweakSave: number | undefined;
+function saveTweakSoon() {
+  const at = path;
+  const t = { ...tweak };
+  clearTimeout(tweakSave);
+  tweakSave = window.setTimeout(() => {
+    void invoke("set_frame_tweak", { path: at, tweak: t }).catch((err) => report("frame", err));
+  }, 250);
+}
+
+/// A knob turned: that one setting now belongs to this shot.
+function tweakFrom(knob: HTMLElement) {
+  if (knob === fpFit) tweak.fit_scale = Number(fpFit.value);
+  else if (knob === fpPad) tweak.padding = Number(fpPad.value);
+  else if (knob === fpX) tweak.x = Number(fpX.value);
+  else if (knob === fpY) tweak.y = Number(fpY.value);
+  else if (knob === fpAnchor) tweak.anchor = fpAnchor.value;
+  else if (knob === fpRadius) tweak.radius = Number(fpRadius.value);
+  else if (knob === fpShadow) tweak.shadow = fpShadow.checked;
+  previewFrame();
+  showFrameValues();
+  saveTweakSoon();
+}
+for (const k of [fpFit, fpPad, fpX, fpY, fpRadius]) k.addEventListener("input", () => tweakFrom(k));
+for (const k of [fpAnchor, fpShadow]) k.addEventListener("change", () => tweakFrom(k));
+
+function openFramePanel() {
+  framePanel.style.left = `${frameAdjustBtn.offsetLeft}px`;
+  framePanel.hidden = false;
+  frameAdjustBtn.classList.add("on");
+  frameAdjustBtn.setAttribute("aria-expanded", "true");
+  fillFramePanel();
+}
+
+function closeFramePanel() {
+  if (framePanel.hidden) return;
+  framePanel.hidden = true;
+  frameAdjustBtn.classList.remove("on");
+  frameAdjustBtn.setAttribute("aria-expanded", "false");
+  if (framePanel.contains(document.activeElement)) (document.activeElement as HTMLElement).blur();
+}
+
+frameAdjustBtn.addEventListener("click", () => (framePanel.hidden ? openFramePanel() : closeFramePanel()));
+fp<HTMLButtonElement>("done").addEventListener("click", closeFramePanel);
+fp<HTMLButtonElement>("reset").addEventListener("click", () => {
+  tweak = { x: 0, y: 0 };
+  previewFrame();
+  fillFramePanel();
+  saveTweakSoon();
+});
+// A click on the shot puts the panel away.
+canvas.addEventListener("mousedown", closeFramePanel);
+// The note is printed under the shot, so the preview follows it.
+for (const id of ["quick-note", "shot-note"]) {
+  document.getElementById(id)?.addEventListener("input", () => {
+    if (hasFrame()) fit();
+    drawFramePreview();
+  });
+}
 
 /// The shot on its frame, as PNG base64. A gradient pads the shot; a
 /// picture keeps its own shape with the shot placed on it at the brand's
 /// size, so a logo in the corner stays in the corner. The note goes in the
 /// space below the shot.
 async function framedPng(note: string): Promise<string> {
-  const f = frameResolved;
-  const text = note.trim();
+  const out = framedCanvas(note);
+  const blob = await new Promise<Blob | null>((res) => out.toBlob(res, "image/png"));
+  if (!blob) throw new Error("empty image");
+  return toBase64(blob);
+}
+
+/// The shot on its frame, drawn to a canvas: for the copy, and for the
+/// Adjust panel's preview.
+function framedCanvas(note: string): HTMLCanvasElement {
+  const L = frameLayout(note);
+  const { W, H, sx, sy, radius } = L;
   const w = canvas.width;
   const h = canvas.height;
-  const font = Math.max(14, Math.min(28, Math.round(w / 40)));
-  const lh = Math.round(font * 1.45);
   const out = document.createElement("canvas");
+  out.width = W;
+  out.height = H;
   const ctx = out.getContext("2d");
   if (!ctx) throw new Error("no canvas");
-  const family = `${font}px "Segoe UI", system-ui, sans-serif`;
-  ctx.font = family;
-  const lines = text ? wrapLines(ctx, text, w) : [];
-  const textH = lines.length ? Math.round(font * 0.9) + lines.length * lh : 0;
-  const picture = f.style === "image" && frameImg && frameImg.naturalWidth > 0 ? frameImg : null;
-  let W: number;
-  let H: number;
-  let sx: number;
-  let sy: number;
-  if (picture) {
-    const fit = Math.min(1, Math.max(0.3, f.fit_scale || 0.8));
-    W = Math.round(w / fit);
-    const margin = Math.round(W * 0.04);
-    H = Math.max(Math.round((W * picture.naturalHeight) / picture.naturalWidth), h + textH + margin * 2);
-    out.width = W;
-    out.height = H;
+  if (L.picture && L.pic) {
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, W, H);
-    const s = Math.max(W / picture.naturalWidth, H / picture.naturalHeight);
-    const dw = picture.naturalWidth * s;
-    const dh = picture.naturalHeight * s;
-    const dy = f.anchor === "top" ? 0 : f.anchor === "bottom" ? H - dh : (H - dh) / 2;
-    ctx.drawImage(picture, (W - dw) / 2, dy, dw, dh);
-    sx = Math.round((W - w) / 2);
-    sy = Math.round((H - (h + textH)) / 2);
+    ctx.drawImage(L.picture, L.pic.x, L.pic.y, L.pic.w, L.pic.h);
   } else {
-    const P = Math.round(Math.max(w, h) * Math.min(0.25, Math.max(0.02, f.padding)));
-    W = w + P * 2;
-    H = h + P * 2 + textH;
-    out.width = W;
-    out.height = H;
-    const g = BACKGROUNDS[f.style as keyof typeof BACKGROUNDS] ?? BACKGROUNDS.midnight;
     const grad = ctx.createLinearGradient(0, 0, W, H);
-    grad.addColorStop(0, g[0]);
-    grad.addColorStop(1, g[1]);
+    grad.addColorStop(0, L.gradient[0]);
+    grad.addColorStop(1, L.gradient[1]);
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, W, H);
-    sx = P;
-    sy = P;
   }
-  const radius = Math.max(4, Math.round(f.radius * Math.max(0.5, Math.min(1.5, w / 1280))));
-  if (f.shadow) {
+  if (L.shadow) {
     ctx.save();
     ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
     ctx.shadowBlur = Math.round(W * 0.03);
@@ -726,26 +902,72 @@ async function framedPng(note: string): Promise<string> {
   ctx.clip();
   ctx.drawImage(canvas, sx, sy);
   ctx.restore();
-  if (lines.length) {
+  if (L.lines.length) {
     // White with a shadow reads on every gradient and on most pictures.
-    ctx.font = family;
+    ctx.font = L.family;
     ctx.textBaseline = "top";
     ctx.fillStyle = "#ffffff";
     ctx.shadowColor = "rgba(0, 0, 0, 0.6)";
-    ctx.shadowBlur = font * 0.5;
+    ctx.shadowBlur = L.font * 0.5;
     ctx.shadowOffsetY = 1;
-    lines.forEach((l, i) => ctx.fillText(l, sx, sy + h + Math.round(font * 0.9) + i * lh));
+    L.lines.forEach((l, i) => ctx.fillText(l, sx, L.textY + i * L.lh));
   }
-  const blob = await new Promise<Blob | null>((res) => out.toBlob(res, "image/png"));
-  if (!blob) throw new Error("empty image");
-  return toBase64(blob);
+  return out;
+}
+
+/// Where everything goes when the shot sits on its frame, in the framed
+/// image's pixels: its size, the shot's place, the picture's, the note's
+/// lines. The copy draws from it and the editor lays itself out by it.
+function frameLayout(note: string) {
+  const f = shotFrame();
+  const text = note.trim();
+  const w = canvas.width;
+  const h = canvas.height;
+  const font = Math.max(14, Math.min(28, Math.round(w / 40)));
+  const lh = Math.round(font * 1.45);
+  const family = `${font}px "Segoe UI", system-ui, sans-serif`;
+  const mctx = document.createElement("canvas").getContext("2d") as CanvasRenderingContext2D;
+  mctx.font = family;
+  const lines = text ? wrapLines(mctx, text, w) : [];
+  const textH = lines.length ? Math.round(font * 0.9) + lines.length * lh : 0;
+  const picture = f.style === "image" && frameImg && frameImg.naturalWidth > 0 ? frameImg : null;
+  let W: number;
+  let H: number;
+  let sx: number;
+  let sy: number;
+  let pic: { x: number; y: number; w: number; h: number } | null = null;
+  if (picture) {
+    const fit = Math.min(1, Math.max(0.3, f.fit_scale || 0.8));
+    W = Math.round(w / fit);
+    const margin = Math.round(W * 0.04);
+    H = Math.max(Math.round((W * picture.naturalHeight) / picture.naturalWidth), h + textH + margin * 2);
+    const s = Math.max(W / picture.naturalWidth, H / picture.naturalHeight);
+    const dw = picture.naturalWidth * s;
+    const dh = picture.naturalHeight * s;
+    const dy = f.anchor === "top" ? 0 : f.anchor === "bottom" ? H - dh : (H - dh) / 2;
+    pic = { x: (W - dw) / 2, y: dy, w: dw, h: dh };
+    // The shot's tweak moves it across the space the picture leaves.
+    const ax = Math.max(-1, Math.min(1, tweak.x || 0));
+    const ay = Math.max(-1, Math.min(1, tweak.y || 0));
+    sx = Math.round(((W - w) / 2) * (1 + ax));
+    sy = Math.round(((H - (h + textH)) / 2) * (1 + ay));
+  } else {
+    const P = Math.round(Math.max(w, h) * Math.min(0.25, Math.max(0.02, f.padding)));
+    W = w + P * 2;
+    H = h + P * 2 + textH;
+    sx = P;
+    sy = P;
+  }
+  const gradient = BACKGROUNDS[f.style as keyof typeof BACKGROUNDS] ?? BACKGROUNDS.midnight;
+  const radius = Math.max(4, Math.round(f.radius * Math.max(0.5, Math.min(1.5, w / 1280))));
+  return { W, H, sx, sy, radius, shadow: f.shadow, picture, pic, gradient, lines, font, lh, family, textY: sy + h + Math.round(font * 0.9) };
 }
 
 /// The marked-up shot with the note printed in a band under it (the canvas
 /// is extended, nothing is covered), as PNG base64. No note, no band. With
 /// a frame chosen, the shot sits on it instead.
 async function captionedPng(note: string): Promise<string> {
-  if (frameResolved.style !== "none" && !(frameResolved.style === "image" && !frameImg)) return framedPng(note);
+  if (hasFrame()) return framedPng(note);
   const text = note.trim();
   const w = canvas.width;
   const h = canvas.height;
@@ -1259,6 +1481,12 @@ for (const b of toolButtons) {
 );
 
 window.addEventListener("keydown", (e) => {
+  // Esc puts the frame panel away before it means cancel or discard.
+  if (e.key === "Escape" && !framePanel.hidden) {
+    e.preventDefault();
+    closeFramePanel();
+    return;
+  }
   // Typing in the side panel: leave the keys to the field, except the
   // ones that leave it.
   const inField = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
@@ -1382,6 +1610,8 @@ let imgUrl: string | null = null;
 /// could ever be saved.
 async function loadImage() {
   const markup = await invoke<Markup>("load_markup", { path });
+  tweak = { x: 0, y: 0, ...(await invoke<Partial<FrameTweak>>("get_frame_tweak", { path }).catch(() => ({}))) };
+  previewFrame();
   marks = markup.marks;
   marksDirty = false;
   selected = null;
@@ -1400,6 +1630,7 @@ async function loadImage() {
       // nudging that ring is the likely reason for opening it.
       setTool(marks.some((m) => m.kind === "click") ? "move" : "arrow");
       render();
+      if (!framePanel.hidden) fillFramePanel();
       resolve();
     };
     img.onerror = () => reject(new Error("image failed to decode"));

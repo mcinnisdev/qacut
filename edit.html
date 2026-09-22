@@ -9,14 +9,6 @@
     <div class="edit-wrap">
       <div class="edit-head" data-tauri-drag-region>
         <span class="edit-title" id="title" data-tauri-drag-region>Edit</span>
-        <div class="tools" id="tools">
-          <button class="tool" data-tool="move" title="Move a mark (M)">Move</button>
-          <button class="tool" data-tool="arrow" title="Arrow (A)">Arrow</button>
-          <button class="tool" data-tool="rect" title="Highlight (H)">Highlight</button>
-          <button class="tool" data-tool="blur" title="Blur (B)">Blur</button>
-          <button class="tool" data-tool="step" title="Step counter (S)">Step</button>
-          <button class="tool" data-tool="text" title="Text label (T)">Text</button>
-        </div>
         <div class="swatches" role="group" aria-label="Colour for the next mark, or the selected one">
           <button class="swatch" data-color="#ff5b5b" style="--c: #ff5b5b" title="Coral"></button>
           <button class="swatch" data-color="#ffc400" style="--c: #ffc400" title="Amber"></button>
@@ -28,15 +20,60 @@
         <select class="frame-select" id="frame-style" title="Frame: what a copied or exported shot sits on. Files on disk stay plain." aria-label="Frame">
           <option value="none">No frame</option>
         </select>
+        <button class="quiet" id="frame-adjust" title="Adjust the frame for this shot only: size, position, corners, shadow" aria-expanded="false">Adjust</button>
         <span class="spacer" data-tauri-drag-region></span>
         <button class="quiet" id="undo" title="Undo (Ctrl+Z)">Undo</button>
         <button class="quiet" id="clear" title="Remove all marks">Clear</button>
         <button class="btn" id="cancel" title="Cancel (Esc)">Cancel</button>
         <button class="btn primary" id="save" title="Save (Enter)">Save</button>
       </div>
+      <!-- This shot's own frame: knobs over the brand's defaults, for when
+           they do not quite fit it. Kept beside the shot. -->
+      <div class="frame-panel" id="frame-panel" hidden>
+        <canvas class="frame-preview" id="frame-preview" aria-label="Preview of the copied shot"></canvas>
+        <div class="frame-knobs">
+          <label class="lib-field" id="fp-fit-row">
+            <span>Shot size <b id="fp-fit-v"></b></span>
+            <input type="range" id="fp-fit" min="0.3" max="1" step="0.01" />
+          </label>
+          <label class="lib-field" id="fp-pad-row">
+            <span>Padding <b id="fp-pad-v"></b></span>
+            <input type="range" id="fp-pad" min="0.02" max="0.25" step="0.01" />
+          </label>
+          <label class="lib-field" id="fp-x-row">
+            <span>Left / right <b id="fp-x-v"></b></span>
+            <input type="range" id="fp-x" min="-1" max="1" step="0.02" />
+          </label>
+          <label class="lib-field" id="fp-y-row">
+            <span>Up / down <b id="fp-y-v"></b></span>
+            <input type="range" id="fp-y" min="-1" max="1" step="0.02" />
+          </label>
+          <label class="lib-field" id="fp-anchor-row">
+            <span>When the picture must be cropped, keep</span>
+            <select class="field" id="fp-anchor">
+              <option value="center">The middle</option>
+              <option value="top">The top</option>
+              <option value="bottom">The bottom</option>
+            </select>
+          </label>
+          <label class="lib-field">
+            <span>Corners <b id="fp-radius-v"></b></span>
+            <input type="range" id="fp-radius" min="0" max="40" step="1" />
+          </label>
+          <label class="lib-field check-field"><input type="checkbox" id="fp-shadow" /> <span>Shadow</span></label>
+          <div class="frame-panel-foot">
+            <button class="linkish" id="fp-reset" title="Drop this shot's changes and use the frame's own settings">Use defaults</button>
+            <button class="btn" id="fp-done">Done</button>
+          </div>
+        </div>
+      </div>
       <div class="edit-main">
         <div class="edit-body" id="body">
-          <canvas id="canvas"></canvas>
+          <!-- The shot, on its frame when one is picked, as it will be copied. -->
+          <div class="edit-stage" id="stage">
+            <canvas id="canvas"></canvas>
+            <div class="stage-note" id="stage-note" hidden></div>
+          </div>
           <input class="text-entry" id="text-entry" hidden placeholder="Type, then Enter" aria-label="Text label" />
         </div>
         <!-- Review mode: the shot's place in the bundle, its note, and a way
@@ -98,7 +135,14 @@
         <div class="edit-strip-list" id="quick-strip-list"></div>
       </div>
       <div class="edit-foot">
-        <span><kbd>M</kbd> move <kbd>A</kbd> arrow <kbd>H</kbd> highlight <kbd>B</kbd> blur <kbd>S</kbd> step <kbd>T</kbd> text</span>
+        <span class="foot-tools" role="group" aria-label="Tools">
+          <button class="foot-tool" data-tool="move" title="Move a mark (M)"><kbd>M</kbd> move</button>
+          <button class="foot-tool" data-tool="arrow" title="Arrow (A)"><kbd>A</kbd> arrow</button>
+          <button class="foot-tool" data-tool="rect" title="Highlight (H)"><kbd>H</kbd> highlight</button>
+          <button class="foot-tool" data-tool="blur" title="Blur (B)"><kbd>B</kbd> blur</button>
+          <button class="foot-tool" data-tool="step" title="Step counter (S)"><kbd>S</kbd> step</button>
+          <button class="foot-tool" data-tool="text" title="Text label (T)"><kbd>T</kbd> text</button>
+        </span>
         <span id="foot-keys"><kbd>←↑↓→</kbd> nudge <kbd>Del</kbd> remove <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo <kbd>Enter</kbd> save <kbd>Esc</kbd> cancel</span>
       </div>
     </div>

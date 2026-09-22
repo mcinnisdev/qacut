@@ -155,9 +155,9 @@ pub struct Shot {
 }
 
 /// Files that travel with a shot's main file: the markup editor's untouched
-/// original and marks JSON beside an annotated PNG, and the MP4 beside a
-/// recording's GIF.
-pub fn sidecars(file: &Path) -> [PathBuf; 3] {
+/// original and marks JSON beside an annotated PNG, the MP4 beside a
+/// recording's GIF, and the shot's own frame tweaks.
+pub fn sidecars(file: &Path) -> [PathBuf; 4] {
     let stem = file
         .file_stem()
         .map(|s| s.to_string_lossy().to_string())
@@ -166,6 +166,7 @@ pub fn sidecars(file: &Path) -> [PathBuf; 3] {
         file.with_file_name(format!("{stem}.orig.png")),
         file.with_file_name(format!("{stem}.marks.json")),
         file.with_file_name(format!("{stem}.mp4")),
+        file.with_file_name(format!("{stem}.frame.json")),
     ]
 }
 
