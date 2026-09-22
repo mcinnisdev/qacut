@@ -372,7 +372,7 @@ export async function exportVideo(
   canvas.height = opts.height;
   const ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
 
-  const showCam = !!(cam && project.camera?.has_video && edits.camera.show);
+  const showCam = !!(cam && project.camera?.has_video && (edits.camera.show || edits.camera_full.length > 0));
   step(`Rendering ${totalFrames} frames`);
   try {
     // Video: walk the kept segments at the output frame rate.

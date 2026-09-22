@@ -1833,7 +1833,7 @@ body.studio {
 /* Timeline under the transport. */
 .timeline {
   position: relative;
-  height: 84px;
+  height: 104px;
   margin: 0 14px 10px;
   background: var(--sunken);
   border: 1px solid var(--line);
@@ -1873,12 +1873,54 @@ body.studio {
   height: 22px;
 }
 .tl-speeds {
-  top: 32px;
+  top: 31px;
+  height: 20px;
+}
+.tl-cams {
+  top: 54px;
   height: 20px;
 }
 .tl-marks {
-  top: 60px;
+  top: 80px;
   height: 16px;
+}
+/* Camera-full blocks: sky blue, labelled. */
+.tl-cam {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background: rgba(42, 196, 234, 0.2);
+  border: 1px solid rgba(42, 196, 234, 0.7);
+  border-radius: 4px;
+  cursor: grab;
+  overflow: hidden;
+}
+.tl-cam.selected {
+  background: rgba(42, 196, 234, 0.4);
+  border-color: #2ac4ea;
+}
+.tl-cam span {
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: #a8e8f7;
+  pointer-events: none;
+}
+.tl-cam .edge {
+  position: absolute;
+  top: 0;
+  width: 7px;
+  height: 100%;
+  cursor: ew-resize;
+}
+.tl-cam .edge.l {
+  left: -1px;
+}
+.tl-cam .edge.r {
+  right: -1px;
 }
 /* Speed blocks: amber, labelled with their rate. */
 .tl-speed {

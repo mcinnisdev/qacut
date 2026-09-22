@@ -32,6 +32,10 @@ Each zoom block eases in over 600 ms, holds, and eases out. Drag a block to move
 
 **Add speed** puts a block at the playhead that runs its stretch faster or slower, from 0.25× to 3×: a typing scene at 2×, a quick move at 0.5×. Speed blocks live in their own lane under the zooms, drag and resize like them, and the rate slider in the inspector sets the pace. The readout under the preview shows how long the finished video will run. Narration inside a sped-up or slowed stretch is stretched with it, so it stays in step but changes pitch; speed changes suit stretches with no talking.
 
+## Camera full screen
+
+With a camera recorded, **Camera full** puts a block at the playhead where the camera fills the frame instead of the screen, for a talking section: an introduction, a wrap-up, a point that needs your face rather than the screen. It fades in over a third of a second and back out at the end. The block lives in its own lane under the speeds and drags and resizes like the others. The bubble hides while the camera is full screen.
+
 ## Trim and cuts
 
 **Start here** and **End here** set where the video begins and ends, or drag the white handles. **Cut** twice removes a stretch from the middle: once at its start, once where it should resume. Cuts are blocks like zooms: drag them, resize them, click one and Remove it. Playback skips removed material and the preview follows every drag.

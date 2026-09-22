@@ -7,7 +7,7 @@
 // through fit, padding and (later) zoom. Everything drawn on the frame,
 // cursor and ripples included, goes through that one mapping.
 
-import { BACKGROUNDS, ZOOM_EASE_MS, type Edits, type Events, type Project, type Zoom } from "./model";
+import { BACKGROUNDS, cameraFullAt, ZOOM_EASE_MS, type Edits, type Events, type Project, type Zoom } from "./model";
 
 export interface Frame {
   t: number;
@@ -488,6 +488,24 @@ export function draw(
     }
   }
 
+  // A talking section: the camera fills the frame, fading over the screen
+  // and everything drawn on it.
+  const full = frame.camera && project.camera?.has_video ? cameraFullAt(edits.camera_full, t) : 0;
+  if (full > 0 && frame.camera && frame.camera.readyState >= 2) {
+    const cv = frame.camera;
+    ctx.save();
+    roundRect(ctx, L.x, L.y, L.w, L.h, radius);
+    ctx.clip();
+    ctx.globalAlpha = full;
+    const vw = cv.videoWidth || 16;
+    const vh = cv.videoHeight || 9;
+    const s = Math.max(L.w / vw, L.h / vh);
+    const dw = vw * s;
+    const dh = vh * s;
+    ctx.drawImage(cv, L.x + (L.w - dw) / 2, L.y + (L.h - dh) / 2, dw, dh);
+    ctx.restore();
+  }
+
   // Title and subtitle in the padding band above or below the frame.
   const uiFont = getComputedStyle(document.body).getPropertyValue("--sans") || "sans-serif";
   const titleText = edits.title.text.trim();
@@ -545,7 +563,7 @@ export function draw(
 
   // Camera bubble, on top of everything, inside the frame's corner.
   const cam = frame.camera;
-  if (cam && edits.camera.show && project.camera?.has_video && cam.readyState >= 2) {
+  if (cam && edits.camera.show && project.camera?.has_video && cam.readyState >= 2 && full < 0.5) {
     const d = L.h * edits.camera.size;
     const m = L.w * 0.025;
     const cx = edits.camera.corner.endsWith("r") ? L.x + L.w - m - d : L.x + m;

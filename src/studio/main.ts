@@ -38,6 +38,7 @@ const timeline = $<HTMLDivElement>("timeline");
 const tlCuts = $<HTMLDivElement>("tl-cuts");
 const tlZooms = $<HTMLDivElement>("tl-zooms");
 const tlSpeeds = $<HTMLDivElement>("tl-speeds");
+const tlCams = $<HTMLDivElement>("tl-cams");
 const tlMarks = $<HTMLDivElement>("tl-marks");
 const tlHead = $<HTMLDivElement>("tl-head");
 const tlFilm = $<HTMLCanvasElement>("tl-film");
@@ -136,6 +137,14 @@ function loadBackground(path: string | null) {
 let cutFrom: number | null = null;
 let selectedCut: { start: number; end: number } | null = null;
 let selectedSpeed: Speed | null = null;
+let selectedCam: { start: number; end: number } | null = null;
+
+/// The camera section's two states follow the selection.
+function camPanels() {
+  $<HTMLElement>("cam-full-none").hidden = selectedCam !== null;
+  $<HTMLElement>("cam-full-edit").hidden = selectedCam === null;
+  if (selectedCam) $<HTMLElement>("cam-full-times").textContent = `${fmt(selectedCam.start)} to ${fmt(selectedCam.end)}`;
+}
 
 function toast(text: string) {
   toastEl.textContent = text;
@@ -416,6 +425,10 @@ function selectZoom(z: Zoom | null) {
     $<HTMLElement>("speed-none").hidden = false;
     $<HTMLElement>("speed-edit").hidden = true;
   }
+  if (z && selectedCam) {
+    selectedCam = null;
+    camPanels();
+  }
   $<HTMLElement>("zoom-none").hidden = z !== null;
   $<HTMLElement>("zoom-edit").hidden = z === null;
   if (z) {
@@ -465,11 +478,30 @@ function dragOnTimeline(
   window.addEventListener("mouseup", onUp);
 }
 
+function selectCam(b: { start: number; end: number } | null) {
+  selectedCam = b;
+  if (b) {
+    selectedZoom = null;
+    selectedCut = null;
+    selectedSpeed = null;
+    $<HTMLElement>("zoom-none").hidden = false;
+    $<HTMLElement>("zoom-edit").hidden = true;
+    $<HTMLElement>("cut-edit").hidden = true;
+    $<HTMLElement>("speed-none").hidden = false;
+    $<HTMLElement>("speed-edit").hidden = true;
+  }
+  camPanels();
+  renderTimeline();
+  scheduleRender();
+}
+
 function selectSpeed(b: Speed | null) {
   selectedSpeed = b;
   if (b) {
     selectedZoom = null;
     selectedCut = null;
+    selectedCam = null;
+    camPanels();
     $<HTMLElement>("zoom-none").hidden = false;
     $<HTMLElement>("zoom-edit").hidden = true;
     $<HTMLElement>("cut-edit").hidden = true;
@@ -487,6 +519,8 @@ function selectCut(c: { start: number; end: number } | null) {
   if (c) {
     selectedZoom = null;
     selectedSpeed = null;
+    selectedCam = null;
+    camPanels();
     $<HTMLElement>("speed-none").hidden = false;
     $<HTMLElement>("speed-edit").hidden = true;
   }
@@ -499,6 +533,7 @@ function renderTimeline() {
   if (!project || !track) return;
   tlZooms.replaceChildren();
   tlSpeeds.replaceChildren();
+  tlCams.replaceChildren();
   tlMarks.replaceChildren();
   tlCuts.replaceChildren();
   const D = project.duration_ms;
@@ -694,6 +729,57 @@ function renderTimeline() {
     tlSpeeds.append(el);
   }
 
+  for (const b of edits.camera_full) {
+    const el = document.createElement("div");
+    el.className = "tl-cam" + (b === selectedCam ? " selected" : "");
+    el.style.left = pct(b.start);
+    el.style.width = pct(b.end - b.start);
+    el.title = `Camera full screen from ${fmt(b.start)} to ${fmt(b.end)}. Drag to move, drag an edge to resize.`;
+    const tag = document.createElement("span");
+    tag.textContent = "camera";
+    const l = document.createElement("div");
+    l.className = "edge l";
+    const r = document.createElement("div");
+    r.className = "edge r";
+    el.append(tag, l, r);
+    const from = { start: b.start, end: b.end };
+    const finish = () => {
+      edits.camera_full.sort((a, c) => a.start - c.start);
+      saveSoon();
+      renderTimeline();
+      camPanels();
+    };
+    el.addEventListener("mousedown", (e) => {
+      selectCam(b);
+      Object.assign(from, b);
+      dragOnTimeline(e, (_ms, dms) => {
+        const len = from.end - from.start;
+        b.start = Math.min(Math.max(0, from.start + dms), D - len);
+        b.end = b.start + len;
+        el.style.left = pct(b.start);
+        return b.start + Math.min(500, len / 2);
+      }, finish);
+    });
+    l.addEventListener("mousedown", (e) => {
+      selectCam(b);
+      dragOnTimeline(e, (ms) => {
+        b.start = Math.min(Math.max(0, ms), b.end - 300);
+        el.style.left = pct(b.start);
+        el.style.width = pct(b.end - b.start);
+        return b.start + 1;
+      }, finish);
+    });
+    r.addEventListener("mousedown", (e) => {
+      selectCam(b);
+      dragOnTimeline(e, (ms) => {
+        b.end = Math.max(Math.min(D, ms), b.start + 300);
+        el.style.width = pct(b.end - b.start);
+        return b.end - 1;
+      }, finish);
+    });
+    tlCams.append(el);
+  }
+
   for (const c of track.clicks) {
     const d = document.createElement("div");
     d.className = "tl-click";
@@ -793,6 +879,7 @@ timeline.addEventListener("mousedown", (e) => {
   selectZoom(null);
   selectCut(null);
   selectSpeed(null);
+  selectCam(null);
   const move = (m: MouseEvent) => {
     const ms = msAt(m.clientX);
     seekMs(ms);
@@ -940,6 +1027,23 @@ $("speed-add").addEventListener("click", () => {
   saveSoon();
 });
 $("speed-add-bar").addEventListener("click", () => $("speed-add").click());
+
+$("cam-full-add").addEventListener("click", () => {
+  if (!project?.camera?.has_video) return;
+  const t = currentMs();
+  const b = { start: t, end: Math.min(project.duration_ms, t + 5000) };
+  edits.camera_full.push(b);
+  edits.camera_full.sort((a, c) => a.start - c.start);
+  selectCam(b);
+  saveSoon();
+});
+$("cam-full-add-bar").addEventListener("click", () => $("cam-full-add").click());
+$("cam-full-remove").addEventListener("click", () => {
+  if (!selectedCam) return;
+  edits.camera_full = edits.camera_full.filter((b) => b !== selectedCam);
+  selectCam(null);
+  saveSoon();
+});
 $("speed-remove").addEventListener("click", () => {
   if (!selectedSpeed) return;
   edits.speeds = edits.speeds.filter((b) => b !== selectedSpeed);
@@ -1004,6 +1108,8 @@ function showInspector() {
   $<HTMLSelectElement>("cam-corner").value = edits.camera.corner;
   $<HTMLSelectElement>("cam-shape").value = edits.camera.shape;
   $<HTMLElement>("camera-section").hidden = !project?.camera?.has_video;
+  $<HTMLElement>("cam-full-add-bar").hidden = !project?.camera?.has_video;
+  camPanels();
   $<HTMLInputElement>("title-text").value = edits.title.text;
   $<HTMLInputElement>("title-sub").value = edits.title.subtitle;
   $<HTMLSelectElement>("title-pos").value = edits.title.position;
@@ -1071,6 +1177,7 @@ async function open(projectDir: string) {
   track = buildTrack(project, events, edits);
   selectedZoom = null;
   selectedSpeed = null;
+  selectedCam = null;
   cutFrom = null;
   nameInput.value = project.name;
 
@@ -1236,10 +1343,11 @@ window.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
     if (!recordings.hidden) recordings.hidden = true;
     else if (!exportPanel.hidden) exportPanel.hidden = true;
-    else if (selectedCut || selectedZoom || selectedSpeed) {
+    else if (selectedCut || selectedZoom || selectedSpeed || selectedCam) {
       selectCut(null);
       selectZoom(null);
       selectSpeed(null);
+      selectCam(null);
     } else void getCurrentWindow().close();
     return;
   }
@@ -1247,6 +1355,7 @@ window.addEventListener("keydown", (e) => {
   if (e.key === "Delete" || e.key === "Backspace") {
     if (selectedCut) removeSelectedCut();
     else if (selectedSpeed) $("speed-remove").click();
+    else if (selectedCam) $("cam-full-remove").click();
     else if (selectedZoom) {
       edits.zooms = edits.zooms.filter((z) => z !== selectedZoom);
       selectZoom(null);

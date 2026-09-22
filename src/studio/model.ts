@@ -100,6 +100,9 @@ export interface Edits {
   zooms: Zoom[];
   /// Stretches played faster or slower, in source time.
   speeds: Speed[];
+  /// Stretches where the camera fills the frame instead of the screen:
+  /// a talking section. Source time.
+  camera_full: { start: number; end: number }[];
   /// Set once the recorded zoom marks have been turned into blocks, so a
   /// deleted block does not come back on the next open.
   zooms_seeded: boolean;
@@ -123,6 +126,7 @@ export const DEFAULT_EDITS: Edits = {
   cuts: [],
   zooms: [],
   speeds: [],
+  camera_full: [],
   zooms_seeded: false,
   zoom_follow: true,
   follow_tightness: 0.6,
@@ -131,6 +135,22 @@ export const DEFAULT_EDITS: Edits = {
 };
 
 export const DEFAULT_ZOOM_SCALE = 2;
+/// How long the camera takes to fade over the screen, and back.
+export const CAM_FADE_MS = 350;
+
+/// How much the camera covers the frame at t: 0 screen, 1 camera, with a
+/// short fade at each end of a block.
+export function cameraFullAt(spans: { start: number; end: number }[], t: number) {
+  for (const b of spans) {
+    if (t < b.start || t > b.end) continue;
+    const fade = Math.min(CAM_FADE_MS, (b.end - b.start) / 2);
+    const f = fade > 0 ? Math.min((t - b.start) / fade, (b.end - t) / fade) : 1;
+    const x = Math.min(1, Math.max(0, f));
+    return x * x * (3 - 2 * x);
+  }
+  return 0;
+}
+
 export const SPEED_MIN = 0.25;
 export const SPEED_MAX = 3;
 
@@ -177,6 +197,7 @@ export function withDefaults(e: Partial<Edits> | undefined): Edits {
     cuts: e?.cuts ?? [],
     zooms: e?.zooms ?? [],
     speeds: e?.speeds ?? [],
+    camera_full: e?.camera_full ?? [],
     zooms_seeded: e?.zooms_seeded ?? false,
     zoom_follow: e?.zoom_follow ?? true,
     follow_tightness: e?.follow_tightness ?? 0.6,

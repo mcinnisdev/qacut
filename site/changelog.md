@@ -8,6 +8,11 @@ aside: false
 
 What each release lets you do that the one before did not. Newest first; every heading links to the release, with the installer and the full list of commits.
 
+## Unreleased
+
+- Studio: **Camera full screen** blocks, where the camera fills the frame for a talking section, fading in and out.
+- Update dialog shows the list of changes as plain text; release notes list app changes only.
+
 ## 2.6.0 (2026-09-22)
 
 [Release notes and installer](https://github.com/mcinnisdev/qacut/releases/tag/v2.6.0)
