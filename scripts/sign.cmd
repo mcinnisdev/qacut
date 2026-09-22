@@ -13,11 +13,25 @@ if "%ESIGNER_USERNAME%"=="" (
   echo sign: no eSigner credentials, leaving %~nx1 unsigned
   exit /b 0
 )
+set "TARGET=%~f1"
+rem Every signature costs eSigner quota, so only what a person or
+rem SmartScreen sees gets one: the app, the installers, the uninstaller.
+rem Tauri also offers the NSIS plugin DLLs and the WiX extension DLLs,
+rem which live inside the installer and are never run on their own.
+echo "%TARGET%" | findstr /i /l /c:"\Plugins\\" /c:"\wix\\" > nul && (
+  echo sign: skipped bundled helper %~nx1
+  exit /b 0
+)
+rem The app exe is offered once per installer type; sign it once.
+for /f "usebackq delims=" %%S in (`powershell -NoProfile -Command "(Get-AuthenticodeSignature -LiteralPath '%TARGET%').Status"`) do set "SIGSTATUS=%%S"
+if /i "%SIGSTATUS%"=="Valid" (
+  echo sign: already signed %~nx1
+  exit /b 0
+)
 if not exist "%CODESIGNTOOL_PATH%\CodeSignTool.bat" (
   echo sign: CodeSignTool.bat not found under "%CODESIGNTOOL_PATH%" 1>&2
   exit /b 1
 )
-set "TARGET=%~f1"
 rem NSIS hands its uninstaller over as a .tmp file, which CodeSignTool
 rem refuses by extension; sign it under an .exe name and put it back.
 set "RENAMED="
