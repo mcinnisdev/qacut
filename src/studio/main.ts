@@ -5,7 +5,7 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { buildTrack, draw, layout, setOwnHotkeys, viewAt, type Track } from "./compositor";
-import { exportVideo, SourceFrames, type Cancel } from "./export";
+import { keptSegments, exportVideo, SourceFrames, type Cancel } from "./export";
 import {
   DEFAULT_ZOOM_SCALE,
   withDefaults,
@@ -14,8 +14,7 @@ import {
   type Events,
   type Project,
   type StudioInfo,
-  type Zoom,
-} from "./model";
+  type Zoom, outputMs, rateAt, SPEED_MAX, SPEED_MIN, type Speed } from "./model";
 
 const params = new URLSearchParams(location.search);
 
@@ -38,6 +37,7 @@ const toastEl = $<HTMLDivElement>("toast");
 const timeline = $<HTMLDivElement>("timeline");
 const tlCuts = $<HTMLDivElement>("tl-cuts");
 const tlZooms = $<HTMLDivElement>("tl-zooms");
+const tlSpeeds = $<HTMLDivElement>("tl-speeds");
 const tlMarks = $<HTMLDivElement>("tl-marks");
 const tlHead = $<HTMLDivElement>("tl-head");
 const tlFilm = $<HTMLCanvasElement>("tl-film");
@@ -96,9 +96,46 @@ function loadLogo(path: string | null) {
     })
     .catch((e) => toast(String(e)));
 }
+/// The background picture, when the frame's background is "image".
+let bgImg: HTMLImageElement | null = null;
+let bgPath: string | null = null;
+let bgUrl: string | null = null;
+
+function loadBackground(path: string | null) {
+  if (path === bgPath) return;
+  bgPath = path;
+  if (bgUrl) {
+    URL.revokeObjectURL(bgUrl);
+    bgUrl = null;
+  }
+  if (!path) {
+    bgImg = null;
+    scheduleRender();
+    return;
+  }
+  void blobUrl(path)
+    .then((url) => {
+      if (bgPath !== path) {
+        URL.revokeObjectURL(url);
+        return;
+      }
+      bgUrl = url;
+      const img = new Image();
+      img.onload = () => {
+        if (bgPath === path) {
+          bgImg = img;
+          scheduleRender();
+        }
+      };
+      img.src = url;
+    })
+    .catch((e) => toast(String(e)));
+}
+
 /// A cut being made: its start, waiting for the end.
 let cutFrom: number | null = null;
 let selectedCut: { start: number; end: number } | null = null;
+let selectedSpeed: Speed | null = null;
 
 function toast(text: string) {
   toastEl.textContent = text;
@@ -142,16 +179,19 @@ function outMs() {
   return edits.trim.out_ms ?? project?.duration_ms ?? 0;
 }
 
-/// Total length of what is kept.
+/// How long the finished video runs: what is kept, at the speeds set.
 function keptMs() {
   if (!project) return 0;
-  let total = Math.max(0, outMs() - edits.trim.in_ms);
-  for (const c of edits.cuts) {
-    const s = Math.max(c.start, edits.trim.in_ms);
-    const e = Math.min(c.end, outMs());
-    if (e > s) total -= e - s;
+  return outputMs(keptSegments(project, edits), edits.speeds);
+}
+
+/// The source video runs at the speed block's rate, and the camera with it.
+function applyRate(t: number) {
+  const r = rateAt(edits.speeds, t);
+  if (src.playbackRate !== r) {
+    src.playbackRate = r;
+    cam.playbackRate = r;
   }
-  return total;
 }
 
 /// Where playback should be if it has landed on removed material.
@@ -163,8 +203,8 @@ function playable(ms: number) {
 
 function render() {
   if (!project || !track) return;
-  draw(ctx, { t: currentMs(), source: src, camera: project.camera ? cam : null, logo: logoImg }, project, edits, track);
-  timeEl.textContent = `${fmt(currentMs())} / ${fmt(project.duration_ms)}  ·  ${fmt(keptMs())} kept`;
+  draw(ctx, { t: currentMs(), source: src, camera: project.camera ? cam : null, logo: logoImg, background: bgImg }, project, edits, track);
+  timeEl.textContent = `${fmt(currentMs())} / ${fmt(project.duration_ms)}  ·  ${fmt(keptMs())} out`;
   if (document.activeElement !== scrub) {
     scrub.value = String(Math.round((currentMs() / Math.max(1, project.duration_ms)) * 1000));
   }
@@ -195,6 +235,7 @@ function onFrame() {
       src.currentTime = p / 1000;
       syncCamera(true);
     }
+    applyRate(p);
   }
   render();
   syncCamera();
@@ -220,6 +261,7 @@ async function play() {
   if (!project) return;
   if (src.ended || currentMs() >= outMs() - 20) src.currentTime = edits.trim.in_ms / 1000;
   else src.currentTime = playable(currentMs()) / 1000;
+  applyRate(currentMs());
   await src.play();
   syncCamera(true);
   playBtn.textContent = "Pause";
@@ -274,7 +316,14 @@ function bindInspector() {
   };
   on("padding", "input", (el) => (edits.frame.padding = Number(el.value)));
   on("radius", "input", (el) => (edits.frame.radius = Number(el.value)));
-  on("background", "change", (el) => (edits.frame.background = el.value as Edits["frame"]["background"]));
+  on("background", "change", (el) => {
+    edits.frame.background = el.value as Edits["frame"]["background"];
+    $<HTMLElement>("bg-image-row").hidden = edits.frame.background !== "image";
+  });
+  on("bg-image", "change", (el) => {
+    edits.frame.image = el.value || null;
+    loadBackground(edits.frame.image);
+  });
   on("shadow", "change", (el) => (edits.frame.shadow = (el as HTMLInputElement).checked));
   on("cursor-size", "input", (el) => (edits.cursor.size = Number(el.value)));
   on("smoothing", "input", (el) => {
@@ -305,25 +354,44 @@ function bindInspector() {
 }
 
 async function fillLogoChoices() {
-  const sel = $<HTMLSelectElement>("logo-path");
   const images = await invoke<{ name: string; path: string }[]>("list_brand_images");
-  sel.replaceChildren();
-  const none = document.createElement("option");
-  none.value = "";
-  none.textContent = images.length ? "None" : "None (brand folder has no images)";
-  sel.append(none);
-  for (const im of images) {
-    const o = document.createElement("option");
-    o.value = im.path;
-    o.textContent = im.name;
-    sel.append(o);
-  }
-  sel.value = edits.logo.path ?? "";
-  if (edits.logo.path && sel.value !== edits.logo.path) {
+  const fill = (sel: HTMLSelectElement, current: string | null, noneText: string) => {
+    sel.replaceChildren();
+    const none = document.createElement("option");
+    none.value = "";
+    none.textContent = images.length ? noneText : `${noneText} (brand folder has no images)`;
+    sel.append(none);
+    for (const im of images) {
+      const o = document.createElement("option");
+      o.value = im.path;
+      o.textContent = im.name;
+      sel.append(o);
+    }
+    sel.value = current ?? "";
     // The file is gone; forget it.
-    edits.logo.path = null;
-  }
+    return current && sel.value !== current ? null : current;
+  };
+  edits.logo.path = fill($<HTMLSelectElement>("logo-path"), edits.logo.path, "None");
+  edits.frame.image = fill($<HTMLSelectElement>("bg-image"), edits.frame.image, "Choose one");
+  $<HTMLElement>("bg-image-row").hidden = edits.frame.background !== "image";
 }
+
+// Choose a file: it is copied into the brand folder, so it shows up for
+// logos too and stays with the kit.
+$("bg-pick").addEventListener("click", async () => {
+  try {
+    const path = await invoke<string | null>("pick_brand_image");
+    if (!path) return;
+    edits.frame.image = path;
+    edits.frame.background = "image";
+    $<HTMLSelectElement>("background").value = "image";
+    await fillLogoChoices();
+    loadBackground(path);
+    saveSoon();
+  } catch (e) {
+    toast(String(e));
+  }
+});
 
 // ------------------------------------------------------------ timeline
 
@@ -342,6 +410,11 @@ function selectZoom(z: Zoom | null) {
   if (z && selectedCut) {
     selectedCut = null;
     $<HTMLElement>("cut-edit").hidden = true;
+  }
+  if (z && selectedSpeed) {
+    selectedSpeed = null;
+    $<HTMLElement>("speed-none").hidden = false;
+    $<HTMLElement>("speed-edit").hidden = true;
   }
   $<HTMLElement>("zoom-none").hidden = z !== null;
   $<HTMLElement>("zoom-edit").hidden = z === null;
@@ -392,9 +465,31 @@ function dragOnTimeline(
   window.addEventListener("mouseup", onUp);
 }
 
+function selectSpeed(b: Speed | null) {
+  selectedSpeed = b;
+  if (b) {
+    selectedZoom = null;
+    selectedCut = null;
+    $<HTMLElement>("zoom-none").hidden = false;
+    $<HTMLElement>("zoom-edit").hidden = true;
+    $<HTMLElement>("cut-edit").hidden = true;
+    $<HTMLInputElement>("speed-rate").value = String(b.rate);
+    $<HTMLElement>("speed-readout").textContent = `${b.rate}×`;
+  }
+  $<HTMLElement>("speed-none").hidden = b !== null;
+  $<HTMLElement>("speed-edit").hidden = b === null;
+  renderTimeline();
+  scheduleRender();
+}
+
 function selectCut(c: { start: number; end: number } | null) {
   selectedCut = c;
-  if (c) selectedZoom = null;
+  if (c) {
+    selectedZoom = null;
+    selectedSpeed = null;
+    $<HTMLElement>("speed-none").hidden = false;
+    $<HTMLElement>("speed-edit").hidden = true;
+  }
   $<HTMLElement>("cut-edit").hidden = c === null;
   if (c) $<HTMLElement>("cut-times").textContent = `${fmt(c.start)} to ${fmt(c.end)}`;
   renderTimeline();
@@ -403,6 +498,7 @@ function selectCut(c: { start: number; end: number } | null) {
 function renderTimeline() {
   if (!project || !track) return;
   tlZooms.replaceChildren();
+  tlSpeeds.replaceChildren();
   tlMarks.replaceChildren();
   tlCuts.replaceChildren();
   const D = project.duration_ms;
@@ -548,6 +644,56 @@ function renderTimeline() {
     tlZooms.append(el);
   }
 
+  for (const b of edits.speeds) {
+    const el = document.createElement("div");
+    el.className = "tl-speed" + (b === selectedSpeed ? " selected" : "");
+    el.style.left = pct(b.start);
+    el.style.width = pct(b.end - b.start);
+    el.title = `${b.rate}× from ${fmt(b.start)} to ${fmt(b.end)}. Drag to move, drag an edge to resize.`;
+    const tag = document.createElement("span");
+    tag.textContent = `${b.rate}×`;
+    const l = document.createElement("div");
+    l.className = "edge l";
+    const r = document.createElement("div");
+    r.className = "edge r";
+    el.append(tag, l, r);
+    const from = { start: b.start, end: b.end };
+    const finish = () => {
+      edits.speeds.sort((a, c) => a.start - c.start);
+      saveSoon();
+      renderTimeline();
+    };
+    el.addEventListener("mousedown", (e) => {
+      selectSpeed(b);
+      Object.assign(from, b);
+      dragOnTimeline(e, (_ms, dms) => {
+        const len = from.end - from.start;
+        b.start = Math.min(Math.max(0, from.start + dms), D - len);
+        b.end = b.start + len;
+        el.style.left = pct(b.start);
+        return b.start + 1;
+      }, finish);
+    });
+    l.addEventListener("mousedown", (e) => {
+      selectSpeed(b);
+      dragOnTimeline(e, (ms) => {
+        b.start = Math.min(Math.max(0, ms), b.end - 200);
+        el.style.left = pct(b.start);
+        el.style.width = pct(b.end - b.start);
+        return b.start + 1;
+      }, finish);
+    });
+    r.addEventListener("mousedown", (e) => {
+      selectSpeed(b);
+      dragOnTimeline(e, (ms) => {
+        b.end = Math.max(Math.min(D, ms), b.start + 200);
+        el.style.width = pct(b.end - b.start);
+        return b.end - 1;
+      }, finish);
+    });
+    tlSpeeds.append(el);
+  }
+
   for (const c of track.clicks) {
     const d = document.createElement("div");
     d.className = "tl-click";
@@ -646,6 +792,7 @@ timeline.addEventListener("mousedown", (e) => {
   if (!project) return;
   selectZoom(null);
   selectCut(null);
+  selectSpeed(null);
   const move = (m: MouseEvent) => {
     const ms = msAt(m.clientX);
     seekMs(ms);
@@ -782,6 +929,33 @@ $("zoom-add").addEventListener("click", () => {
   saveSoon();
 });
 $("zoom-add-bar").addEventListener("click", () => $("zoom-add").click());
+
+$("speed-add").addEventListener("click", () => {
+  if (!project) return;
+  const t = currentMs();
+  const b: Speed = { start: t, end: Math.min(project.duration_ms, t + 3000), rate: 2 };
+  edits.speeds.push(b);
+  edits.speeds.sort((a, c) => a.start - c.start);
+  selectSpeed(b);
+  saveSoon();
+});
+$("speed-add-bar").addEventListener("click", () => $("speed-add").click());
+$("speed-remove").addEventListener("click", () => {
+  if (!selectedSpeed) return;
+  edits.speeds = edits.speeds.filter((b) => b !== selectedSpeed);
+  selectSpeed(null);
+  saveSoon();
+});
+$<HTMLInputElement>("speed-rate").addEventListener("input", (e) => {
+  if (!selectedSpeed) return;
+  const v = Math.min(SPEED_MAX, Math.max(SPEED_MIN, Number((e.target as HTMLInputElement).value)));
+  selectedSpeed.rate = v;
+  $<HTMLElement>("speed-readout").textContent = `${v}×`;
+  applyRate(currentMs());
+  renderTimeline();
+  scheduleRender();
+  saveSoon();
+});
 $("zoom-remove").addEventListener("click", () => {
   if (!selectedZoom) return;
   edits.zooms = edits.zooms.filter((z) => z !== selectedZoom);
@@ -835,7 +1009,10 @@ function showInspector() {
   $<HTMLSelectElement>("title-pos").value = edits.title.position;
   $<HTMLSelectElement>("logo-corner").value = edits.logo.corner;
   $<HTMLInputElement>("logo-size").value = String(edits.logo.size);
-  void fillLogoChoices().then(() => loadLogo(edits.logo.path));
+  void fillLogoChoices().then(() => {
+    loadLogo(edits.logo.path);
+    loadBackground(edits.frame.background === "image" ? edits.frame.image : null);
+  });
 
   const p = project!;
   const secs = Math.round(p.duration_ms / 1000);
@@ -893,6 +1070,7 @@ async function open(projectDir: string) {
   }
   track = buildTrack(project, events, edits);
   selectedZoom = null;
+  selectedSpeed = null;
   cutFrom = null;
   nameInput.value = project.name;
 
@@ -1006,6 +1184,7 @@ $("export-start").addEventListener("click", async () => {
       project.camera ? convertFileSrc(`${dir}/${project.camera.file}`) : null,
       project.camera?.has_video ? cam : null,
       logoImg,
+      edits.frame.background === "image" ? bgImg : null,
       (p) => {
         const f = p.total > 0 ? p.done / p.total : 0;
         fill.style.width = `${Math.round(f * 100)}%`;
@@ -1057,15 +1236,17 @@ window.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
     if (!recordings.hidden) recordings.hidden = true;
     else if (!exportPanel.hidden) exportPanel.hidden = true;
-    else if (selectedCut || selectedZoom) {
+    else if (selectedCut || selectedZoom || selectedSpeed) {
       selectCut(null);
       selectZoom(null);
+      selectSpeed(null);
     } else void getCurrentWindow().close();
     return;
   }
   if (typing) return;
   if (e.key === "Delete" || e.key === "Backspace") {
     if (selectedCut) removeSelectedCut();
+    else if (selectedSpeed) $("speed-remove").click();
     else if (selectedZoom) {
       edits.zooms = edits.zooms.filter((z) => z !== selectedZoom);
       selectZoom(null);

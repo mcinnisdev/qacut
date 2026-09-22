@@ -15,6 +15,8 @@ export interface Frame {
   camera: HTMLVideoElement | null;
   /// The logo image, loaded by the caller, when one is chosen.
   logo?: HTMLImageElement | null;
+  /// The background picture, loaded by the caller, when one is chosen.
+  background?: HTMLImageElement | null;
 }
 
 export interface Track {
@@ -197,12 +199,14 @@ function smoothstep(f: number) {
   return x * x * (3 - 2 * x);
 }
 
-/// The camera path for a follow block: starts on (cx, cy), then chases
-/// the cursor. Inside the dead zone the camera still drifts a little
-/// toward the cursor, so the pan is under way before the cursor reaches
-/// the edge; past the dead zone it moves just enough to keep up, with a
-/// critically damped lag. `tightness` 0..1 sets dead zone and lag.
-/// Sampled at 120 Hz over the block.
+/// The camera path for a follow block: it holds on (cx, cy) while the zoom
+/// eases in, so the magnification and the pan never fight, then chases
+/// the cursor. Inside the dead zone the camera drifts a little toward the
+/// cursor; past it, the target moves with the cursor. The target is
+/// continuous across the dead zone's edge (the old one jumped there,
+/// which read as a jerk), and the camera reaches it through a critically
+/// damped spring. `tightness` 0..1 sets dead zone and lag. Sampled at
+/// 120 Hz over the block.
 function followPath(
   z: Zoom,
   track: Track,
@@ -227,14 +231,20 @@ function followPath(
   let vy = 0;
   const w = 1000 / tau;
   const dt = step / 1000;
+  const hold = z.start + Math.min(ZOOM_EASE_MS, (z.end - z.start) / 2);
+  const aim = (from: number, to: number, dead: number) => {
+    const d = to - from;
+    const ad = Math.abs(d);
+    return from + (ad <= dead ? drift * d : Math.sign(d) * (drift * dead + (ad - dead)));
+  };
   for (let t = z.start; t <= z.end; t += step) {
-    const c = cursorAt(track.path, t) ?? { x, y };
-    let tx = x + (c.x - x) * drift;
-    let ty = y + (c.y - y) * drift;
-    if (c.x > x + deadX) tx = c.x - deadX;
-    else if (c.x < x - deadX) tx = c.x + deadX;
-    if (c.y > y + deadY) ty = c.y - deadY;
-    else if (c.y < y - deadY) ty = c.y + deadY;
+    let tx = z.cx;
+    let ty = z.cy;
+    if (t >= hold) {
+      const c = cursorAt(track.path, t) ?? { x, y };
+      tx = aim(x, c.x, deadX);
+      ty = aim(y, c.y, deadY);
+    }
     const ax = w * w * (tx - x) - 2 * w * vx;
     const ay = w * w * (ty - y) - 2 * w * vy;
     vx += ax * dt;
@@ -356,13 +366,22 @@ export function draw(
   const H = ctx.canvas.height;
   const t = frame.t;
 
-  // Background.
-  const [c1, c2] = BACKGROUNDS[edits.frame.background];
-  const g = ctx.createLinearGradient(0, 0, W, H);
-  g.addColorStop(0, c1);
-  g.addColorStop(1, c2);
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, W, H);
+  // Background: a picture from the brand folder, scaled to cover, or one
+  // of the gradients.
+  if (edits.frame.background === "image" && frame.background && frame.background.naturalWidth > 0) {
+    const im = frame.background;
+    const s = Math.max(W / im.naturalWidth, H / im.naturalHeight);
+    const dw = im.naturalWidth * s;
+    const dh = im.naturalHeight * s;
+    ctx.drawImage(im, (W - dw) / 2, (H - dh) / 2, dw, dh);
+  } else {
+    const [c1, c2] = BACKGROUNDS[edits.frame.background === "image" ? "midnight" : edits.frame.background];
+    const g = ctx.createLinearGradient(0, 0, W, H);
+    g.addColorStop(0, c1);
+    g.addColorStop(1, c2);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+  }
 
   const L = layout(W, H, project, edits);
   const radius = edits.frame.radius * (W / 1280);

@@ -61,7 +61,7 @@ export interface StudioInfo {
   has_camera: boolean;
 }
 
-export type Background = "midnight" | "sunset" | "ocean" | "slate" | "plain";
+export type Background = "midnight" | "sunset" | "ocean" | "slate" | "plain" | "image";
 export type Corner = "br" | "bl" | "tr" | "tl";
 
 export type KeyMode = "shortcuts" | "all";
@@ -79,8 +79,17 @@ export interface Zoom {
   follow?: boolean;
 }
 
+/// A playback speed block: between start and end (source time) the video
+/// runs at `rate` times normal speed.
+export interface Speed {
+  start: number;
+  end: number;
+  rate: number;
+}
+
 export interface Edits {
-  frame: { padding: number; radius: number; background: Background; shadow: boolean };
+  /// `image` is a picture from the brand folder, used when background is "image".
+  frame: { padding: number; radius: number; background: Background; shadow: boolean; image: string | null };
   cursor: { size: number; smoothing: number; ripple: boolean };
   /// `hidden` holds the press times of badges the user removed.
   keys: { show: boolean; mode: KeyMode; hidden: number[] };
@@ -89,6 +98,8 @@ export interface Edits {
   /// Stretches removed from the middle, in source time.
   cuts: { start: number; end: number }[];
   zooms: Zoom[];
+  /// Stretches played faster or slower, in source time.
+  speeds: Speed[];
   /// Set once the recorded zoom marks have been turned into blocks, so a
   /// deleted block does not come back on the next open.
   zooms_seeded: boolean;
@@ -104,13 +115,14 @@ export interface Edits {
 }
 
 export const DEFAULT_EDITS: Edits = {
-  frame: { padding: 0.06, radius: 14, background: "midnight", shadow: true },
+  frame: { padding: 0.06, radius: 14, background: "midnight", shadow: true, image: null },
   cursor: { size: 1.6, smoothing: 0.35, ripple: true },
   keys: { show: true, mode: "shortcuts", hidden: [] },
   camera: { show: true, size: 0.22, corner: "br", shape: "circle" },
   trim: { in_ms: 0, out_ms: null },
   cuts: [],
   zooms: [],
+  speeds: [],
   zooms_seeded: false,
   zoom_follow: true,
   follow_tightness: 0.6,
@@ -119,6 +131,37 @@ export const DEFAULT_EDITS: Edits = {
 };
 
 export const DEFAULT_ZOOM_SCALE = 2;
+export const SPEED_MIN = 0.25;
+export const SPEED_MAX = 3;
+
+/// Playback rate at source time t: the block covering it, else 1.
+export function rateAt(speeds: Speed[], t: number) {
+  for (const s of speeds) if (t >= s.start && t < s.end) return s.rate;
+  return 1;
+}
+
+/// Kept source segments split at every speed boundary, each with its rate,
+/// so a walk through them can advance at the right pace.
+export function speedPieces(segs: { start: number; end: number }[], speeds: Speed[]) {
+  const out: { start: number; end: number; rate: number }[] = [];
+  for (const s of segs) {
+    const edges = new Set<number>([s.start, s.end]);
+    for (const b of speeds) {
+      if (b.start > s.start && b.start < s.end) edges.add(b.start);
+      if (b.end > s.start && b.end < s.end) edges.add(b.end);
+    }
+    const pts = [...edges].sort((a, b) => a - b);
+    for (let i = 0; i + 1 < pts.length; i++) {
+      out.push({ start: pts[i], end: pts[i + 1], rate: rateAt(speeds, pts[i]) });
+    }
+  }
+  return out;
+}
+
+/// How long the kept material plays for, speed changes included.
+export function outputMs(segs: { start: number; end: number }[], speeds: Speed[]) {
+  return speedPieces(segs, speeds).reduce((a, p) => a + (p.end - p.start) / p.rate, 0);
+}
 /// How long a zoom takes to ease in or out.
 export const ZOOM_EASE_MS = 600;
 
@@ -133,6 +176,7 @@ export function withDefaults(e: Partial<Edits> | undefined): Edits {
     trim: { ...d.trim, ...(e?.trim ?? {}) },
     cuts: e?.cuts ?? [],
     zooms: e?.zooms ?? [],
+    speeds: e?.speeds ?? [],
     zooms_seeded: e?.zooms_seeded ?? false,
     zoom_follow: e?.zoom_follow ?? true,
     follow_tightness: e?.follow_tightness ?? 0.6,
@@ -168,7 +212,7 @@ export function zoomsFromMarks(
   return out;
 }
 
-export const BACKGROUNDS: Record<Background, [string, string]> = {
+export const BACKGROUNDS: Record<Exclude<Background, "image">, [string, string]> = {
   midnight: ["#141a2b", "#2a1f4d"],
   sunset: ["#3a1c3f", "#c2503a"],
   ocean: ["#0d2b3e", "#1e6f8c"],

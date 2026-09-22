@@ -1455,6 +1455,36 @@ fn list_brand_images(app: AppHandle) -> Vec<BrandImage> {
     out
 }
 
+/// A file picker for a picture, copied into the brand folder so it shows
+/// up in every picker and travels with the kit. None when cancelled.
+#[tauri::command]
+async fn pick_brand_image(app: AppHandle) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+    let picked = app
+        .dialog()
+        .file()
+        .add_filter("Pictures", &["png", "jpg", "jpeg", "webp", "gif"])
+        .set_title("Choose a picture")
+        .blocking_pick_file();
+    let Some(picked) = picked else { return Ok(None) };
+    let from = picked.into_path().map_err(|e| e.to_string())?;
+    let dir = brand_dir(&app);
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let name = from.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_else(|| "picture.png".into());
+    let mut to = dir.join(&name);
+    let mut n = 2;
+    while to.exists() && std::fs::read(&to).ok() != std::fs::read(&from).ok() {
+        let stem = from.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+        let ext = from.extension().map(|e| e.to_string_lossy().to_string()).unwrap_or_default();
+        to = dir.join(format!("{stem}-{n}.{ext}"));
+        n += 1;
+    }
+    if !to.exists() {
+        std::fs::copy(&from, &to).map_err(|e| e.to_string())?;
+    }
+    Ok(Some(to.to_string_lossy().to_string()))
+}
+
 #[tauri::command]
 fn reveal_path(app: AppHandle, path: String) -> Result<(), String> {
     app.opener().reveal_item_in_dir(path).map_err(|e| e.to_string())
@@ -2537,6 +2567,7 @@ fn main() {
             export_abort,
             reveal_path,
             list_brand_images,
+            pick_brand_image,
             get_studio_settings,
             set_studio_settings,
             get_hotkeys,

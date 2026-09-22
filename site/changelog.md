@@ -8,6 +8,15 @@ aside: false
 
 What each release lets you do that the one before did not. Newest first; every heading links to the release, with the installer and the full list of commits.
 
+## 2.6.0 (2026-09-22)
+
+[Release notes and installer](https://github.com/mcinnisdev/qacut/releases/tag/v2.6.0)
+
+- **Speed blocks** in the studio: run a stretch at 0.25× to 3×, in a lane of their own on the timeline. Playback, the length readout and the export all follow, narration included.
+- **Picture backgrounds**: choose an image from the brand folder, or pick a file, to sit behind the frame instead of a gradient.
+- Follow zooms hold still while the zoom eases in, then glide after the cursor; the pan no longer jerks at the edge of the dead zone.
+- The "No recording open" text no longer shows over an open recording.
+
 ## 2.5.2 (2026-09-21)
 
 [Release notes and installer](https://github.com/mcinnisdev/qacut/releases/tag/v2.5.2)

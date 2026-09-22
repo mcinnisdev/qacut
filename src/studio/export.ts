@@ -7,6 +7,7 @@ import { createFile, DataStream, Endianness, MP4BoxBuffer } from "mp4box";
 import { Muxer, StreamTarget } from "mp4-muxer";
 import { draw, type Track } from "./compositor";
 import type { Edits, Project } from "./model";
+import { outputMs, rateAt, speedPieces } from "./model";
 
 export interface ExportOptions {
   width: number;
@@ -239,6 +240,7 @@ async function narration(
   project: Project,
   cameraUrl: string,
   segs: { start: number; end: number }[],
+  speeds: Edits["speeds"],
 ): Promise<{ channels: Float32Array[]; sampleRate: number } | null> {
   if (!project.camera?.has_audio) return null;
   const ctxA = new AudioContext({ sampleRate: 48000 });
@@ -252,18 +254,21 @@ async function narration(
   await ctxA.close();
   const rate = buf.sampleRate;
   const chans = Math.min(2, buf.numberOfChannels);
-  const totalMs = segs.reduce((a, s) => a + (s.end - s.start), 0);
+  const pieces = speedPieces(segs, speeds);
+  const totalMs = outputMs(segs, speeds);
   const total = Math.ceil((totalMs / 1000) * rate);
   const out = Array.from({ length: chans }, () => new Float32Array(total));
   let outPos = 0;
-  for (const s of segs) {
-    const n = Math.round(((s.end - s.start) / 1000) * rate);
+  for (const s of pieces) {
+    // A sped-up or slowed stretch is resampled to keep the narration in
+    // step with the picture; the pitch moves with it.
+    const n = Math.round(((s.end - s.start) / s.rate / 1000) * rate);
     // Camera time runs offset_ms behind source time.
     const camStart = Math.round(((s.start - project.camera.offset_ms) / 1000) * rate);
     for (let c = 0; c < chans; c++) {
       const src = buf.getChannelData(c);
       for (let i = 0; i < n && outPos + i < total; i++) {
-        const j = camStart + i;
+        const j = camStart + Math.round(i * s.rate);
         out[c][outPos + i] = j >= 0 && j < src.length ? src[j] : 0;
       }
     }
@@ -285,11 +290,12 @@ export async function exportVideo(
   cameraUrl: string | null,
   cam: HTMLVideoElement | null,
   logo: HTMLImageElement | null,
+  background: HTMLImageElement | null,
   onProgress: (p: Progress) => void,
   cancel: Cancel,
 ): Promise<string> {
   const segs = keptSegments(project, edits);
-  const totalMs = segs.reduce((a, s) => a + (s.end - s.start), 0);
+  const totalMs = outputMs(segs, edits.speeds);
   const frameUs = 1e6 / opts.fps;
   const totalFrames = Math.max(1, Math.floor((totalMs * 1000) / frameUs));
 
@@ -323,7 +329,7 @@ export async function exportVideo(
   });
 
   if (cameraUrl) step("Decoding narration");
-  const audio = cameraUrl ? await narration(project, cameraUrl, segs) : null;
+  const audio = cameraUrl ? await narration(project, cameraUrl, segs, edits.speeds) : null;
   step(audio ? "Configuring encoders (with narration)" : "Configuring encoders (no narration)");
   const muxer = new Muxer({
     target,
@@ -386,7 +392,7 @@ export async function exportVideo(
       if (encodeError) throw encodeError;
       if (frame) {
         if (showCam) await seekTo(cam!, Math.max(0, (tSrc - project.camera!.offset_ms) / 1000));
-        draw(ctx, { t: tSrc, source: frame, camera: showCam ? cam : null, logo }, project, edits, track);
+        draw(ctx, { t: tSrc, source: frame, camera: showCam ? cam : null, logo, background }, project, edits, track);
         const vf = new VideoFrame(canvas, { timestamp: Math.round(i * frameUs), duration: Math.round(frameUs) });
         encoder.encode(vf, { keyFrame: i % (opts.fps * 2) === 0 });
         vf.close();
@@ -395,7 +401,8 @@ export async function exportVideo(
         }
       }
       i++;
-      segPos += 1000 / opts.fps;
+      // A speed block covers more (or less) source time per output frame.
+      segPos += (1000 / opts.fps) * rateAt(edits.speeds, tSrc);
       if (i === 1 || i % 5 === 0) onProgress({ phase: "Rendering", done: i, total: totalFrames });
       if (i === 1 || i % 300 === 0) void invoke("log_error", { message: `export: frame ${i} of ${totalFrames}` });
     }
