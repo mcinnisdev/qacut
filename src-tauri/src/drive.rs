@@ -40,6 +40,8 @@ enum Req {
     /// Throw away the open quick batch, folder and all.
     QuickBatchDiscard,
     Prompts { select: Option<String> },
+    /// Open the brands window, on one brand if given.
+    Brands { select: Option<String> },
     /// Run JavaScript in a window: fill a field, open a panel, tick a box.
     Eval { label: String, js: String },
     Studio { dir: String },
@@ -271,6 +273,10 @@ fn run(app: &AppHandle, req: Req) -> Result<String, String> {
             }
             Ok("discarded".into())
         }
+        Req::Brands { select } => {
+            overlay::open_brands(app, select.as_deref()).map_err(|e| e.to_string())?;
+            Ok("brands".into())
+        }
         Req::Prompts { select } => {
             overlay::open_prompts(app, select.as_deref()).map_err(|e| e.to_string())?;
             Ok("prompts".into())
@@ -341,7 +347,7 @@ fn run(app: &AppHandle, req: Req) -> Result<String, String> {
             let brand = brand.map(PathBuf::from).unwrap_or_else(|| brand_dir(app));
             let mut inner = lock(app);
             let session = inner.session.as_mut().ok_or("no bundle open")?;
-            let frame = crate::studio::settings::Settings::load(&base_dir(app)).shot_frame;
+            let frame = crate::brand::resolve_shot_frame(app);
             let p = crate::export::write_document(session, &brand, fmt, &frame).map_err(|e| e.to_string())?;
             Ok(p.to_string_lossy().to_string())
         }

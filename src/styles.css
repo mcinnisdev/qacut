@@ -2355,6 +2355,86 @@ body.library {
   border-color: var(--signal);
   color: var(--signal);
 }
+/* The brands window: sections down the right, a mock of the frame. */
+.brand-editor {
+  gap: 8px;
+}
+.brand-h {
+  margin: 14px 0 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.brand-active-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 32px;
+}
+.brand-active {
+  font-size: 12px;
+  color: var(--muted);
+}
+.brand-files-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.brand-files-row .facts {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.brand-sliders {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+.brand-sliders .lib-field b {
+  font-weight: 500;
+  color: var(--text);
+  margin-left: 6px;
+}
+.brand-sliders input[type="range"] {
+  width: 100%;
+}
+.check-field {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding-top: 16px;
+}
+.brand-preview {
+  width: 320px;
+  padding: 6%;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 16 / 9;
+}
+.brand-preview[hidden] {
+  display: none;
+}
+.brand-preview .shot {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  background: #e8ebef;
+  border-radius: 6px;
+}
+.brand-notes {
+  min-height: 120px;
+  flex: 0 0 auto;
+}
+.lib-field[hidden] {
+  display: none;
+}
+
 .lib-template {
   flex: 1;
   min-height: 140px;

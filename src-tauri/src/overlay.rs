@@ -10,6 +10,7 @@ pub const REC: &str = "rec";
 pub const EDIT: &str = "edit";
 const PROMPTS: &str = "prompts";
 pub const STUDIO: &str = "studio";
+pub const BRANDS: &str = "brands";
 
 /// Every window gets the same browser arguments (WebView2 fixes them for
 /// the process at the first window). Tauri's defaults, plus: no permission
@@ -360,6 +361,26 @@ pub fn open_prompts(app: &AppHandle, select: Option<&str>) -> Result<()> {
         .title("QACut prompt library")
         .inner_size(960.0, 640.0)
         .min_inner_size(720.0, 480.0)
+        .decorations(false)
+        .focused(true)
+        .build()?;
+    let _ = win.center();
+    let _ = win.set_focus();
+    Ok(())
+}
+
+/// The brands window: one brand per folder, its files, notes and looks.
+/// `select` opens on that brand.
+pub fn open_brands(app: &AppHandle, select: Option<&str>) -> Result<()> {
+    close_and_wait(app, BRANDS);
+    let url = match select {
+        Some(slug) => format!("brands.html?select={}", urlencode(slug)),
+        None => "brands.html".to_string(),
+    };
+    let win = builder(app, BRANDS, WebviewUrl::App(url.into()))
+        .title("QACut brands")
+        .inner_size(1040.0, 720.0)
+        .min_inner_size(820.0, 540.0)
         .decorations(false)
         .focused(true)
         .build()?;

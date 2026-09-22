@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Brands</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body class="library">
+    <div class="lib-wrap">
+      <div class="lib-head" data-tauri-drag-region>
+        <span class="lib-title" data-tauri-drag-region>Brands</span>
+        <span class="lib-sub" data-tauri-drag-region>A folder each: files for agents and the studio, voice notes, and the looks QACut applies.</span>
+        <span class="spacer" data-tauri-drag-region></span>
+        <span class="lib-status" id="status"></span>
+        <button class="icon-btn" id="close" title="Close (Esc)" aria-label="Close">&times;</button>
+      </div>
+      <div class="lib-main">
+        <nav class="lib-list" id="list" aria-label="Brands">
+          <div class="lib-group lib-group-mine">
+            <span>Brands</span>
+            <button class="quiet small" id="add">+ New</button>
+          </div>
+          <div id="list-brands"></div>
+          <p class="lib-empty">The active brand is what bundles, exports and the studio use.</p>
+        </nav>
+        <section class="lib-editor brand-editor" id="editor">
+          <div class="lib-fields">
+            <label class="lib-field">
+              <span>Name</span>
+              <input class="field" id="name" placeholder="As it appears in the pickers" />
+            </label>
+            <div class="lib-field">
+              <span>Status</span>
+              <div class="brand-active-row">
+                <span id="active-label" class="brand-active"></span>
+                <button class="btn" id="activate">Use this brand</button>
+              </div>
+            </div>
+          </div>
+
+          <h3 class="brand-h">Files</h3>
+          <p class="lib-about">Everything in the folder goes into bundles for agents. Logos and backgrounds are picked from here.</p>
+          <div class="brand-files-row">
+            <span id="files-summary" class="facts"></span>
+            <button class="quiet" id="add-file">Add a file…</button>
+            <button class="quiet" id="open-folder">Open folder</button>
+          </div>
+          <label class="lib-field">
+            <span>Logo</span>
+            <select class="field" id="logo"></select>
+          </label>
+
+          <h3 class="brand-h">Screenshot frame</h3>
+          <p class="lib-about">What a copied shot, and every screenshot in an exported document, sits on when this brand's frame is picked in the editor. The saved files stay plain.</p>
+          <div class="lib-fields">
+            <label class="lib-field">
+              <span>Background</span>
+              <select class="field" id="sf-style">
+                <option value="none">None</option>
+                <option value="midnight">Midnight</option>
+                <option value="sunset">Sunset</option>
+                <option value="ocean">Ocean</option>
+                <option value="slate">Slate</option>
+                <option value="plain">Plain</option>
+                <option value="image">Picture</option>
+              </select>
+            </label>
+            <label class="lib-field" id="sf-image-row">
+              <span>Picture</span>
+              <select class="field" id="sf-image"></select>
+            </label>
+          </div>
+          <div class="lib-fields brand-sliders">
+            <label class="lib-field" id="sf-fit-row">
+              <span>Shot width on the picture <b id="sf-fit-v"></b></span>
+              <input type="range" id="sf-fit" min="0.4" max="0.95" step="0.05" />
+            </label>
+            <label class="lib-field" id="sf-anchor-row">
+              <span>When the picture must be cropped, keep</span>
+              <select class="field" id="sf-anchor">
+                <option value="center">The middle</option>
+                <option value="top">The top</option>
+                <option value="bottom">The bottom</option>
+              </select>
+            </label>
+            <label class="lib-field" id="sf-pad-row">
+              <span>Padding <b id="sf-pad-v"></b></span>
+              <input type="range" id="sf-pad" min="0.02" max="0.15" step="0.01" />
+            </label>
+            <label class="lib-field">
+              <span>Corners <b id="sf-radius-v"></b></span>
+              <input type="range" id="sf-radius" min="0" max="40" step="1" />
+            </label>
+            <label class="lib-field check-field">
+              <input type="checkbox" id="sf-shadow" /> <span>Shadow</span>
+            </label>
+          </div>
+          <div class="brand-preview" id="sf-preview" aria-hidden="true"><div class="shot"></div></div>
+
+          <h3 class="brand-h">Studio look</h3>
+          <p class="lib-about">Applied to a recording the first time it opens in the studio, and from the studio's Frame section on demand.</p>
+          <div class="lib-fields">
+            <label class="lib-field">
+              <span>Background</span>
+              <select class="field" id="st-bg">
+                <option value="midnight">Midnight</option>
+                <option value="sunset">Sunset</option>
+                <option value="ocean">Ocean</option>
+                <option value="slate">Slate</option>
+                <option value="plain">Plain</option>
+                <option value="image">Picture</option>
+              </select>
+            </label>
+            <label class="lib-field" id="st-image-row">
+              <span>Picture</span>
+              <select class="field" id="st-image"></select>
+            </label>
+          </div>
+          <div class="lib-fields brand-sliders">
+            <label class="lib-field">
+              <span>Padding <b id="st-pad-v"></b></span>
+              <input type="range" id="st-pad" min="0" max="0.2" step="0.01" />
+            </label>
+            <label class="lib-field">
+              <span>Corners <b id="st-radius-v"></b></span>
+              <input type="range" id="st-radius" min="0" max="40" step="1" />
+            </label>
+            <label class="lib-field check-field">
+              <input type="checkbox" id="st-shadow" /> <span>Shadow</span>
+            </label>
+            <label class="lib-field">
+              <span>Logo corner</span>
+              <select class="field" id="st-logo-corner">
+                <option value="tl">Top left</option>
+                <option value="tr">Top right</option>
+                <option value="bl">Bottom left</option>
+                <option value="br">Bottom right</option>
+              </select>
+            </label>
+            <label class="lib-field">
+              <span>Logo size <b id="st-logo-size-v"></b></span>
+              <input type="range" id="st-logo-size" min="0.2" max="1" step="0.05" />
+            </label>
+          </div>
+
+          <h3 class="brand-h">Voice notes</h3>
+          <p class="lib-about">For the agent: tone, audience, words to use and avoid, how the business refers to itself. Saved as brand.md and inlined into every bundle.</p>
+          <textarea class="field lib-template brand-notes" id="notes" spellcheck="true" aria-label="Voice notes"></textarea>
+
+          <div class="lib-actions">
+            <button class="btn primary" id="save" title="Save (Ctrl+S)">Save</button>
+            <span class="spacer"></span>
+            <button class="linkish danger" id="delete">Delete brand</button>
+          </div>
+        </section>
+      </div>
+    </div>
+    <script type="module" src="/src/brands.ts"></script>
+  </body>
+</html>

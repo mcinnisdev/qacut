@@ -24,6 +24,7 @@ export default defineConfig({
         edit: resolve(__dirname, "edit.html"),
         studio: resolve(__dirname, "studio.html"),
         prompts: resolve(__dirname, "prompts.html"),
+        brands: resolve(__dirname, "brands.html"),
       },
     },
   },

@@ -568,8 +568,9 @@ function isDarkAlongBottom(ctx: CanvasRenderingContext2D, w: number, h: number):
 // ------------------------------------------------------------- frame
 //
 // How a copied or exported shot is dressed: none, one of the studio's
-// gradients, or a picture from the brand folder, with padding, rounded
-// corners and a shadow. Remembered in settings; files on disk stay plain.
+// gradients, or a brand's preset (its picture, placed behind the shot at
+// the size the brand says). Remembered in settings; files on disk stay
+// plain.
 
 interface ShotFrame {
   style: string;
@@ -577,8 +578,13 @@ interface ShotFrame {
   padding: number;
   radius: number;
   shadow: boolean;
+  brand: string | null;
+  fit_scale: number;
+  anchor: string;
 }
-let shotFrame: ShotFrame = { style: "none", image: null, padding: 0.06, radius: 14, shadow: true };
+const NO_FRAME: ShotFrame = { style: "none", image: null, padding: 0.06, radius: 14, shadow: true, brand: null, fit_scale: 0.8, anchor: "center" };
+let framePick: ShotFrame = { ...NO_FRAME };
+let frameResolved: ShotFrame = { ...NO_FRAME };
 let frameImg: HTMLImageElement | null = null;
 const frameSelect = document.getElementById("frame-style") as HTMLSelectElement;
 
@@ -601,14 +607,15 @@ async function loadFrameImage(path: string | null) {
 
 /// The editor's backdrop previews the frame.
 function previewFrame() {
-  const g = BACKGROUNDS[shotFrame.style as keyof typeof BACKGROUNDS];
+  const f = frameResolved;
+  const g = BACKGROUNDS[f.style as keyof typeof BACKGROUNDS];
   if (g) bodyEl.style.background = `linear-gradient(135deg, ${g[0]}, ${g[1]})`;
-  else if (shotFrame.style === "image" && shotFrame.image) bodyEl.style.background = `url("${convertFileSrc(shotFrame.image)}") center / cover no-repeat`;
+  else if (f.style === "image" && f.image) bodyEl.style.background = `#fff url("${convertFileSrc(f.image)}") center ${f.anchor || "center"} / cover no-repeat`;
   else bodyEl.style.background = "";
 }
 
 async function fillFrameChoices() {
-  const images = await invoke<{ name: string; path: string }[]>("list_brand_images").catch(() => []);
+  const brands = await invoke<{ slug: string; active: boolean; brand: { name: string } }[]>("list_brands").catch(() => []);
   frameSelect.replaceChildren();
   const add = (value: string, text: string) => {
     const o = document.createElement("option");
@@ -617,51 +624,45 @@ async function fillFrameChoices() {
     frameSelect.append(o);
   };
   add("none", "No frame");
+  for (const b of brands) add(`brand:${b.slug}`, `Brand: ${b.brand.name}${b.active ? " (active)" : ""}`);
   for (const [k, label] of [["midnight", "Midnight"], ["sunset", "Sunset"], ["ocean", "Ocean"], ["slate", "Slate"], ["plain", "Plain"]]) add(k, label);
-  for (const im of images) add(`image:${im.path}`, `Picture: ${im.name}`);
-  add("pick", "Choose a picture…");
-  frameSelect.value = shotFrame.style === "image" && shotFrame.image ? `image:${shotFrame.image}` : shotFrame.style;
+  frameSelect.value = framePick.style === "brand" ? `brand:${framePick.brand ?? ""}` : framePick.style;
   if (frameSelect.value === "") frameSelect.value = "none";
 }
 
 async function loadFrame() {
   try {
-    shotFrame = { ...shotFrame, ...(await invoke<ShotFrame>("get_shot_frame")) };
+    const r = await invoke<{ pick: ShotFrame; resolved: ShotFrame }>("get_shot_frame");
+    framePick = { ...NO_FRAME, ...r.pick };
+    frameResolved = { ...NO_FRAME, ...r.resolved };
   } catch {
     // Defaults, then.
   }
   await fillFrameChoices();
-  await loadFrameImage(shotFrame.style === "image" ? shotFrame.image : null);
+  await loadFrameImage(frameResolved.style === "image" ? frameResolved.image : null);
   previewFrame();
 }
 
 frameSelect.addEventListener("change", async () => {
   const v = frameSelect.value;
-  if (v === "pick") {
-    try {
-      const path = await invoke<string | null>("pick_brand_image");
-      if (path) shotFrame = { ...shotFrame, style: "image", image: path };
-    } catch (err) {
-      report("picture", err);
-    }
-  } else if (v.startsWith("image:")) {
-    shotFrame = { ...shotFrame, style: "image", image: v.slice(6) };
-  } else {
-    shotFrame = { ...shotFrame, style: v };
+  framePick = v.startsWith("brand:") ? { ...framePick, style: "brand", brand: v.slice(6) } : { ...framePick, style: v, brand: null };
+  try {
+    await invoke("set_shot_frame", { frame: framePick });
+  } catch (err) {
+    report("frame", err);
   }
-  await fillFrameChoices();
-  await loadFrameImage(shotFrame.style === "image" ? shotFrame.image : null);
-  previewFrame();
-  void invoke("set_shot_frame", { frame: shotFrame }).catch((err) => report("frame", err));
+  await loadFrame();
 });
 
-/// The shot on its frame: background, padding, rounded corners, shadow,
-/// and the note in the padding below, as PNG base64.
+/// The shot on its frame, as PNG base64. A gradient pads the shot; a
+/// picture keeps its own shape with the shot placed on it at the brand's
+/// size, so a logo in the corner stays in the corner. The note goes in the
+/// space below the shot.
 async function framedPng(note: string): Promise<string> {
+  const f = frameResolved;
   const text = note.trim();
   const w = canvas.width;
   const h = canvas.height;
-  const P = Math.round(Math.max(w, h) * Math.min(0.25, Math.max(0.02, shotFrame.padding)));
   const font = Math.max(14, Math.min(28, Math.round(w / 40)));
   const lh = Math.round(font * 1.45);
   const out = document.createElement("canvas");
@@ -671,56 +672,69 @@ async function framedPng(note: string): Promise<string> {
   ctx.font = family;
   const lines = text ? wrapLines(ctx, text, w) : [];
   const textH = lines.length ? Math.round(font * 0.9) + lines.length * lh : 0;
-  const W = w + P * 2;
-  const H = h + P * 2 + textH;
-  out.width = W;
-  out.height = H;
-  const g = BACKGROUNDS[shotFrame.style as keyof typeof BACKGROUNDS];
-  if (shotFrame.style === "image" && frameImg && frameImg.naturalWidth > 0) {
-    // White under the picture, as the exported document has, so a picture
-    // with transparent parts looks the same in both.
+  const picture = f.style === "image" && frameImg && frameImg.naturalWidth > 0 ? frameImg : null;
+  let W: number;
+  let H: number;
+  let sx: number;
+  let sy: number;
+  if (picture) {
+    const fit = Math.min(1, Math.max(0.3, f.fit_scale || 0.8));
+    W = Math.round(w / fit);
+    const margin = Math.round(W * 0.04);
+    H = Math.max(Math.round((W * picture.naturalHeight) / picture.naturalWidth), h + textH + margin * 2);
+    out.width = W;
+    out.height = H;
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, W, H);
-    const s = Math.max(W / frameImg.naturalWidth, H / frameImg.naturalHeight);
-    const dw = frameImg.naturalWidth * s;
-    const dh = frameImg.naturalHeight * s;
-    ctx.drawImage(frameImg, (W - dw) / 2, (H - dh) / 2, dw, dh);
+    const s = Math.max(W / picture.naturalWidth, H / picture.naturalHeight);
+    const dw = picture.naturalWidth * s;
+    const dh = picture.naturalHeight * s;
+    const dy = f.anchor === "top" ? 0 : f.anchor === "bottom" ? H - dh : (H - dh) / 2;
+    ctx.drawImage(picture, (W - dw) / 2, dy, dw, dh);
+    sx = Math.round((W - w) / 2);
+    sy = Math.round((H - (h + textH)) / 2);
   } else {
-    const [c1, c2] = g ?? BACKGROUNDS.midnight;
+    const P = Math.round(Math.max(w, h) * Math.min(0.25, Math.max(0.02, f.padding)));
+    W = w + P * 2;
+    H = h + P * 2 + textH;
+    out.width = W;
+    out.height = H;
+    const g = BACKGROUNDS[f.style as keyof typeof BACKGROUNDS] ?? BACKGROUNDS.midnight;
     const grad = ctx.createLinearGradient(0, 0, W, H);
-    grad.addColorStop(0, c1);
-    grad.addColorStop(1, c2);
+    grad.addColorStop(0, g[0]);
+    grad.addColorStop(1, g[1]);
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, W, H);
+    sx = P;
+    sy = P;
   }
-  const radius = Math.max(4, Math.round(shotFrame.radius * Math.max(0.5, Math.min(1.5, w / 1280))));
-  if (shotFrame.shadow) {
+  const radius = Math.max(4, Math.round(f.radius * Math.max(0.5, Math.min(1.5, w / 1280))));
+  if (f.shadow) {
     ctx.save();
     ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
-    ctx.shadowBlur = P * 0.7;
-    ctx.shadowOffsetY = P * 0.2;
+    ctx.shadowBlur = Math.round(W * 0.03);
+    ctx.shadowOffsetY = Math.round(W * 0.01);
     ctx.fillStyle = "#000";
     ctx.beginPath();
-    ctx.roundRect(P, P, w, h, radius);
+    ctx.roundRect(sx, sy, w, h, radius);
     ctx.fill();
     ctx.restore();
   }
   ctx.save();
   ctx.beginPath();
-  ctx.roundRect(P, P, w, h, radius);
+  ctx.roundRect(sx, sy, w, h, radius);
   ctx.clip();
-  ctx.drawImage(canvas, P, P);
+  ctx.drawImage(canvas, sx, sy);
   ctx.restore();
   if (lines.length) {
-    // White on every gradient (they are all dark); on a picture, white with
-    // a shadow so it reads on anything.
+    // White with a shadow reads on every gradient and on most pictures.
     ctx.font = family;
     ctx.textBaseline = "top";
     ctx.fillStyle = "#ffffff";
     ctx.shadowColor = "rgba(0, 0, 0, 0.6)";
     ctx.shadowBlur = font * 0.5;
     ctx.shadowOffsetY = 1;
-    lines.forEach((l, i) => ctx.fillText(l, P, P + h + Math.round(font * 0.9) + i * lh));
+    lines.forEach((l, i) => ctx.fillText(l, sx, sy + h + Math.round(font * 0.9) + i * lh));
   }
   const blob = await new Promise<Blob | null>((res) => out.toBlob(res, "image/png"));
   if (!blob) throw new Error("empty image");
@@ -731,7 +745,7 @@ async function framedPng(note: string): Promise<string> {
 /// is extended, nothing is covered), as PNG base64. No note, no band. With
 /// a frame chosen, the shot sits on it instead.
 async function captionedPng(note: string): Promise<string> {
-  if (shotFrame.style !== "none" && !(shotFrame.style === "image" && !frameImg)) return framedPng(note);
+  if (frameResolved.style !== "none" && !(frameResolved.style === "image" && !frameImg)) return framedPng(note);
   const text = note.trim();
   const w = canvas.width;
   const h = canvas.height;
@@ -1404,6 +1418,7 @@ function report(where: string, err: unknown) {
 
 async function boot() {
   void loadFrame();
+  void listen("brands-changed", () => void loadFrame());
   if (quick) {
     quickSide.hidden = false;
     title.textContent = "Quick shot";

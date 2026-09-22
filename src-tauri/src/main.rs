@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod brand;
 mod capture;
 mod drive;
 mod export;
@@ -122,8 +123,9 @@ fn load_custom_prompt(app: &AppHandle) -> String {
 
 /// Logo, colours, fonts, style guides, voice notes: whatever the user drops
 /// here is copied into each bundle so the agent's output matches the brand.
+/// The active brand's folder.
 fn brand_dir(app: &AppHandle) -> std::path::PathBuf {
-    base_dir(app).join("brand")
+    brand::active_dir(app)
 }
 
 /// The sentence added to the built-in prompts when a brand kit rides along.
@@ -795,6 +797,7 @@ fn build_tray_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
 
     let shortcuts_i = MenuItem::with_id(app, "shortcuts", "Keyboard shortcuts...", true, None::<&str>)?;
     let prompts_i = MenuItem::with_id(app, "prompts", "Prompt library...", true, None::<&str>)?;
+    let brands_i = MenuItem::with_id(app, "brands", "Brands...", true, None::<&str>)?;
     let update_i = MenuItem::with_id(app, "update", "Check for updates...", true, None::<&str>)?;
     let quit_i = MenuItem::with_id(app, "quit", "Quit QACut", true, None::<&str>)?;
     let sep_quick = PredefinedMenuItem::separator(app)?;
@@ -812,7 +815,7 @@ fn build_tray_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
             &sep_inputs,
             &head_inputs, &keys_i, &mic_i, &cam_i, &studio_folder_i,
             &sep2,
-            &shortcuts_i, &prompts_i, &update_i, &quit_i,
+            &shortcuts_i, &prompts_i, &brands_i, &update_i, &quit_i,
         ],
     )
 }
@@ -914,6 +917,17 @@ fn check_for_updates(app: &AppHandle, quiet: bool) {
             _ => {}
         }
     });
+}
+
+fn trigger_brands(app: &AppHandle) {
+    if let Err(e) = overlay::open_brands(app, None) {
+        eprintln!("qacut: could not open the brands window: {e}");
+    }
+}
+
+#[tauri::command]
+async fn open_brands(app: AppHandle, select: Option<String>) -> Result<(), String> {
+    overlay::open_brands(&app, select.as_deref()).map_err(|e| e.to_string())
 }
 
 fn trigger_shortcuts(app: &AppHandle) {
@@ -1514,9 +1528,20 @@ fn set_studio_settings(app: AppHandle, settings: studio::settings::Settings) -> 
     settings.save(&base_dir(&app)).map_err(|e| e.to_string())
 }
 
+#[derive(Serialize)]
+struct FramePick {
+    pick: studio::settings::ShotFrame,
+    resolved: studio::settings::ShotFrame,
+}
+
+/// The editor's Frame choice, and what it comes to once a brand's preset
+/// is looked up and its picture's path made absolute.
 #[tauri::command]
-fn get_shot_frame(app: AppHandle) -> studio::settings::ShotFrame {
-    studio::settings::Settings::load(&base_dir(&app)).shot_frame
+fn get_shot_frame(app: AppHandle) -> FramePick {
+    FramePick {
+        pick: studio::settings::Settings::load(&base_dir(&app)).shot_frame,
+        resolved: brand::resolve_shot_frame(&app),
+    }
 }
 
 #[tauri::command]
@@ -2061,7 +2086,7 @@ async fn export_document(app: AppHandle, state: State<'_, Shared>, format: Strin
     let path = {
         let mut inner = state.lock().unwrap();
         let session = inner.session.as_mut().ok_or_else(|| "nothing captured yet".to_string())?;
-        let frame = studio::settings::Settings::load(&base_dir(&app)).shot_frame;
+        let frame = brand::resolve_shot_frame(&app);
         let p = export::write_document(session, &brand_dir(&app), fmt, &frame).map_err(|e| e.to_string())?;
         inner.dirty = false;
         p
@@ -2600,6 +2625,16 @@ fn main() {
             get_hotkeys,
             get_shot_frame,
             set_shot_frame,
+            brand::list_brands,
+            brand::get_brand,
+            brand::save_brand,
+            brand::create_brand,
+            brand::delete_brand,
+            brand::set_active_brand,
+            brand::pick_brand_file,
+            brand::brand_studio_look,
+            brand::open_brand_dir,
+            open_brands,
             set_hotkeys,
             get_prompts,
             set_prompts,
@@ -2694,6 +2729,7 @@ fn main() {
                     }
                     "shortcuts" => off_main(app, trigger_shortcuts),
                     "prompts" => off_main(app, trigger_prompts),
+                    "brands" => off_main(app, trigger_brands),
                     "update" => check_for_updates(app, false),
                     "group" => off_main(app, trigger_group),
                     "peek" => off_main(app, trigger_peek),
@@ -2730,8 +2766,10 @@ fn main() {
                 })
                 .build(app)?;
 
-            // The brand folder exists from the start so there is somewhere
-            // obvious to drop files before the first bundle window opens.
+            // The single brand folder of earlier versions becomes the first
+            // brand; the active brand's folder exists from the start so there
+            // is somewhere obvious to drop files.
+            brand::migrate(&handle);
             let _ = std::fs::create_dir_all(brand_dir(&handle));
 
             // No visible window on launch. The tray is the app.

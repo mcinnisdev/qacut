@@ -130,7 +130,7 @@ def copy(src, *dests):
 
 
 def close_all():
-    for l in ["edit", "note", "peek", "prompts", "studio", "rec", "capture-"]:
+    for l in ["edit", "note", "peek", "prompts", "brands", "studio", "rec", "capture-"]:
         req("close", label=l)
     time.sleep(0.4)
 
@@ -362,6 +362,15 @@ def quick(f):
 
 
 
+def brands():
+    print("brands window")
+    req("brands")
+    req("resize", label="brands", w=1040, h=760)
+    time.sleep(1.5)
+    shot("brands", DOCS / "brands-window.png")
+    close_all()
+
+
 def prompts():
     print("prompt library")
     req("prompts")
@@ -429,6 +438,7 @@ if __name__ == "__main__":
         bundles(f)
         quick(f)
         prompts()
+        brands()
         overlays()
         if len(sys.argv) > 1 and sys.argv[1].startswith("--studio="):
             studio(sys.argv[1].split("=", 1)[1])

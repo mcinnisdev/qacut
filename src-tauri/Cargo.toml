@@ -19,7 +19,7 @@ tauri-plugin-updater = "2"
 tauri-plugin-dialog = "2"
 
 xcap = "0.9"
-image = { version = "0.25", default-features = false, features = ["png", "bmp"] }
+image = { version = "0.25", default-features = false, features = ["png", "bmp", "jpeg", "webp", "gif"] }
 # Text and image on the clipboard at once (the plugin writes one format at a time).
 clipboard-win = "5"
 serde = { version = "1", features = ["derive"] }

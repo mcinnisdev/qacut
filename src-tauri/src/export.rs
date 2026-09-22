@@ -21,7 +21,7 @@ impl BrandKit {
         let notes = std::fs::read_to_string(dir.join(BRAND_NOTES)).unwrap_or_default();
         let mut files = Vec::new();
         list_files(dir, dir, &mut files);
-        files.retain(|f| f != BRAND_NOTES);
+        files.retain(|f| f != BRAND_NOTES && f != crate::brand::BRAND_JSON);
         files.sort();
         BrandKit { notes, files }
     }
@@ -509,18 +509,32 @@ pub fn render_document_html(session: &Session, logo: Option<&Path>, frame: &Shot
     let frame_css = if frame.is_none() {
         String::new()
     } else {
-        let bg = match frame.gradient() {
-            Some((c1, c2)) => format!("linear-gradient(135deg, {c1}, {c2})"),
-            None => frame
-                .image
-                .as_deref()
-                .and_then(|p| data_uri(Path::new(p)))
-                .map(|uri| format!("url({uri}) center / cover no-repeat"))
-                .unwrap_or_else(|| "linear-gradient(135deg, #141a2b, #2a1f4d)".into()),
+        // A picture keeps its own shape and the shot takes a share of its
+        // width, so a logo in a corner stays in the corner; a gradient just
+        // pads the shot.
+        let picture = frame.image.as_deref().map(Path::new).filter(|p| p.is_file());
+        let (bg, layout) = match picture.and_then(|p| data_uri(p).zip(image::image_dimensions(p).ok())) {
+            Some((uri, (pw, ph))) => {
+                let anchor = match frame.anchor.as_str() {
+                    "top" => "top",
+                    "bottom" => "bottom",
+                    _ => "center",
+                };
+                (
+                    format!("#fff url({uri}) center {anchor} / cover no-repeat"),
+                    format!(
+                        "display: flex; align-items: center; justify-content: center; aspect-ratio: {pw} / {ph}; padding: 4%;",
+                    ),
+                )
+            }
+            None => {
+                let (c1, c2) = frame.gradient().unwrap_or(("#141a2b", "#2a1f4d"));
+                (format!("linear-gradient(135deg, {c1}, {c2})"), format!("padding: {}%;", (frame.padding * 100.0).clamp(0.0, 25.0)))
+            }
         };
+        let width = if picture.is_some() { format!("width: {}%;", (frame.fit_scale * 100.0).clamp(30.0, 100.0)) } else { String::new() };
         format!(
-            "  .step .shot {{ padding: {pad}%; border-radius: 10px; background: {bg}; }}\n  .step .shot img {{ border: 0; border-radius: {radius}px; {shadow} }}\n",
-            pad = (frame.padding * 100.0).clamp(0.0, 25.0),
+            "  .step .shot {{ {layout} border-radius: 10px; background: {bg}; }}\n  .step .shot img {{ {width} border: 0; border-radius: {radius}px; {shadow} }}\n",
             radius = frame.radius.clamp(0.0, 40.0),
             shadow = if frame.shadow { "box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);" } else { "" },
         )

@@ -11,7 +11,9 @@ What each release lets you do that the one before did not. Newest first; every h
 ## Unreleased
 
 - Studio: **Camera full screen** blocks, where the camera fills the frame for a talking section, fading in and out.
-- **Frames for screenshots**: a copied shot, and every screenshot in an exported document, can sit on a gradient or a picture from your brand folder with padding, rounded corners and a shadow. Pick it in the editor's toolbar; it is remembered.
+- **Brands**: a window (tray → Brands…) for one brand per folder: files for agents, a logo, voice notes, the screenshot frame and the studio look. One brand is active; keep one per client. Your existing brand folder becomes the first brand.
+- **Frames for screenshots**: a copied shot, and every screenshot in an exported document, can sit on a gradient or on a brand's picture, placed behind the shot at a size you set so a logo in the corner stays visible, with rounded corners and a shadow. Pick a brand or a gradient in the editor's toolbar; it is remembered.
+- Studio: a recording takes the active brand's look when first opened, and **Use brand look** applies it on demand.
 - Update dialog shows the list of changes as plain text; release notes list app changes only.
 
 ## 2.6.0 (2026-09-22)

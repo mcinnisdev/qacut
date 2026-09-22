@@ -1093,6 +1093,45 @@ $<HTMLInputElement>("follow-tightness").addEventListener("input", (e) => {
   saveSoon();
 });
 
+interface BrandLook {
+  name: string;
+  background: string;
+  image: string | null;
+  padding: number;
+  radius: number;
+  shadow: boolean;
+  logo: string | null;
+  logo_corner: string;
+  logo_size: number;
+}
+
+/// The active brand's studio look onto this recording's frame and logo.
+async function applyBrandLook(announce: boolean) {
+  let look: BrandLook;
+  try {
+    look = await invoke<BrandLook>("brand_studio_look");
+  } catch (e) {
+    if (announce) toast(String(e));
+    return;
+  }
+  edits.frame.background = (look.background === "image" && look.image ? "image" : look.background === "image" ? "midnight" : look.background) as Edits["frame"]["background"];
+  edits.frame.image = look.image;
+  edits.frame.padding = look.padding;
+  edits.frame.radius = look.radius;
+  edits.frame.shadow = look.shadow;
+  edits.logo.path = look.logo;
+  edits.logo.corner = look.logo_corner as Edits["logo"]["corner"];
+  edits.logo.size = look.logo_size;
+  if (announce) {
+    showInspector();
+    scheduleRender();
+    saveSoon();
+    toast(`${look.name}'s look applied`);
+  }
+}
+
+$("frame-brand").addEventListener("click", () => void applyBrandLook(true));
+
 function showInspector() {
   $<HTMLInputElement>("padding").value = String(edits.frame.padding);
   $<HTMLInputElement>("radius").value = String(edits.frame.radius);
@@ -1166,7 +1205,10 @@ async function open(projectDir: string) {
   dir = projectDir;
   project = loaded.project;
   events = loaded.events;
+  const fresh = !project.edits || Object.keys(project.edits as object).length === 0;
   edits = withDefaults(project.edits as Partial<Edits>);
+  // A recording opening for the first time takes the active brand's look.
+  if (fresh) await applyBrandLook(false);
   // The operator's zoom marks become blocks once; after that the blocks
   // are theirs to change or delete.
   if (!edits.zooms_seeded) {

@@ -326,6 +326,12 @@ async function render() {
   const n = state.brand.files.length;
   brandFiles.textContent =
     n === 0 ? "no files yet" : `${n} file${n === 1 ? "" : "s"}`;
+  void invoke<{ active: boolean; brand: { name: string } }[]>("list_brands")
+    .then((bs) => {
+      const a = bs.find((b) => b.active);
+      if (a) brandFiles.textContent = `${a.brand.name} · ${brandFiles.textContent}`;
+    })
+    .catch(() => {});
 
   const shots = session?.groups.reduce((n, g) => n + g.shots.length, 0) ?? 0;
   const used = session?.groups.filter((g) => g.shots.length > 0).length ?? 0;
@@ -974,6 +980,7 @@ brandInclude.addEventListener("change", () => {
   void invoke("set_include_brand", { include: brandInclude.checked });
 });
 brandOpen.addEventListener("click", () => void invoke("open_brand_folder"));
+(document.getElementById("brand-manage") as HTMLButtonElement).addEventListener("click", () => void invoke("open_brands", { select: null }));
 brandNotes.addEventListener("change", async () => {
   await invoke("set_brand_notes", { text: brandNotes.value });
   await render();

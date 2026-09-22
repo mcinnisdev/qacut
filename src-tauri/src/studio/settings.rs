@@ -81,16 +81,35 @@ impl Hotkeys {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ShotFrame {
+    /// "none", a gradient name, "image", or "brand" (the editor's pick of a
+    /// brand's preset, see `brand`).
     pub style: String,
     pub image: Option<String>,
     pub padding: f64,
     pub radius: f64,
     pub shadow: bool,
+    /// For style "brand": which brand's preset.
+    pub brand: Option<String>,
+    /// For a picture: how much of the picture's width the shot takes, so
+    /// the picture is placed behind the shot rather than cropped to it.
+    pub fit_scale: f64,
+    /// For a picture that still has to be cropped (a tall shot): which part
+    /// to keep, "center", "top" or "bottom".
+    pub anchor: String,
 }
 
 impl Default for ShotFrame {
     fn default() -> Self {
-        ShotFrame { style: "none".into(), image: None, padding: 0.06, radius: 14.0, shadow: true }
+        ShotFrame {
+            style: "none".into(),
+            image: None,
+            padding: 0.06,
+            radius: 14.0,
+            shadow: true,
+            brand: None,
+            fit_scale: 0.8,
+            anchor: "center".into(),
+        }
     }
 }
 
@@ -117,6 +136,8 @@ impl ShotFrame {
 pub struct Settings {
     /// How copied and exported screenshots are framed.
     pub shot_frame: ShotFrame,
+    /// The brand whose folder, notes and looks are in use.
+    pub active_brand: String,
     /// Record key presses through a low-level hook so shortcuts can be shown.
     pub keystrokes: bool,
     /// Record narration from the default microphone.
